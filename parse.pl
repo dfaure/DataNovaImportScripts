@@ -53,6 +53,15 @@ sub get_day_of_week($) {
     return $day_of_week;
 }
 
+sub rule_for_day_of_week($$$)
+{
+    my ($day_of_week, $opening, $ref_all_openings) = @_;
+    my @all_openings = @$ref_all_openings;
+    my $rule = "";
+
+    return $rule;
+}
+
 sub parse_args() {
     my $csv_file;
     while (my $arg = shift(@ARGV)) {
@@ -100,9 +109,11 @@ sub main() {
     }
     print "Parsed $line_nr lines\n";
 
-    my %office_times = (); # office => (day of week => times)
-    #To group days, the key here is the opening times like 09:00-12:00,14:00-16:30
-    my %days_for_times = ();  # office => (times => day of week)
+    # Aggregate the different opening hours for Mondays in different rules
+    # The empty rule is the default one. But this allows for exceptions.
+    my %office_times = (); # office => (day of week => (rule => times))
+    # To group days (like "Mo-Fr"), the key here is the opening times like 09:00-12:00,14:00-16:30
+    my %days_for_times = ();  # office => (rule => (times => day of week))
 
     foreach my $office_id (sort(keys %office_data)) {
         my $office_name = $office_names{$office_id};
@@ -134,9 +145,10 @@ sub main() {
                 }
             }
             foreach my $opening (@all_openings) {
-                $office_times{$office_id}{$day_of_week} = $opening;
-                $days_for_times{$office_id}{$opening} .= $day_of_week;
-                #print "$office_id $day_of_week $dt $opening\n";
+                my $rule = rule_for_day_of_week($day_of_week, $opening, \@all_openings);
+                $office_times{$office_id}{$day_of_week}{$rule} = $opening;
+                $days_for_times{$office_id}{$rule}{$opening} .= $day_of_week;
+                #print "$office_name $day_of_week rule=$rule opening=$opening\n";
             }
         }
     }
@@ -147,11 +159,14 @@ sub main() {
         my %times = %{$office_times{$office_id}};
         my %days_for = %{$days_for_times{$office_id}};
         foreach my $day_of_week (sort(keys %times)) {
-            my $opening = $times{$day_of_week};
-            my $daynums = $days_for{$opening};
-            if (defined $daynums) {
-                $full_list .= abbrevs($daynums) . " $opening;";
-                undef $days_for{$opening};
+            my %rules = %{$times{$day_of_week}};
+            foreach my $rule (sort(keys %rules)) {
+                my $opening = $rules{$rule};
+                my $daynums = $days_for{$rule}{$opening};
+                if (defined $daynums) {
+                    $full_list .= "$rule " . abbrevs($daynums) . " $opening;";
+                    undef $days_for{$rule}{$opening};
+                }
             }
         }
         $full_list =~ s/;$//;
