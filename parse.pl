@@ -99,7 +99,6 @@ sub try_year_split($) {
     return @years;
 }
 
-
 sub rules_for_day_of_week($$) {
     my ($day_of_week, $ref_dates) = @_;
     my @date_sets = @$ref_dates;  # unused
@@ -115,7 +114,7 @@ sub rules_for_day_of_week($$) {
     #return "" if ($num_dates >= 7); # Wins by majority
 
     for my $i (0..$#date_sets) {
-        push @rules, "ERROR";
+        push @rules, "ERROR-" . $i;
     }
     return @rules;
 }
