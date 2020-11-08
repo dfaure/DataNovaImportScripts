@@ -134,18 +134,8 @@ sub main() {
                 }
             }
             foreach my $opening (@all_openings) {
-                my @dates = @{$dayhash{$opening}};
-                foreach my $date (@dates) {
-                    my $existing = $office_times{$office_id}{$day_of_week};
-                    if (defined $existing) {
-                        if ($existing ne $opening) {
-                            #print "ERROR: $office_name $day_of_week $date: $opening is incompatible with $day_of_week $existing\n";
-                        }
-                    } else {
-                        $office_times{$office_id}{$day_of_week} = $opening;
-                        $days_for_times{$office_id}{$opening} .= $day_of_week;
-                    }
-                }
+                $office_times{$office_id}{$day_of_week} = $opening;
+                $days_for_times{$office_id}{$opening} .= $day_of_week;
                 #print "$office_id $day_of_week $dt $opening\n";
             }
         }
