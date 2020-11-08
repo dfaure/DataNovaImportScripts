@@ -4,6 +4,7 @@ use Text::CSV;
 use strict;
 use warnings FATAL => 'all';
 use DateTime::Format::ISO8601;
+use v5.14;     # using the + prototype for show_array, new to v5.14
 
 sub panic($) {
     print "@_\n";
@@ -13,10 +14,24 @@ sub usage() {
     panic "Usage: $0 csv_file";
 }
 
+# Debugging of arrays, from https://perldoc.perl.org/perllol
+sub show_array(+) {
+       require Dumpvalue;
+       state $prettily = new Dumpvalue::
+                           tick        => q("),
+                           compactDump => 1,
+                           veryCompact => 1, ;
+       dumpValue $prettily @_;
+}
+
+sub day_of_week_name($) {
+    state @dayAbbrev = ( 'ERROR', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su', 'PH' );
+    return $dayAbbrev[shift];
+}
+
 # Turn "1235" into "Mo-We,Fr"
 sub abbrevs($) {
     my ($daynums) = @_; # ex: 1235, 8 for NH
-    my @dayAbbrev = ( 'ERROR', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su', 'PH' );
     my $ret = "";
     my @digits = split(//, $daynums);
     push @digits, 9; # so that 8 gets processed
@@ -29,9 +44,9 @@ sub abbrevs($) {
         } else {
             if (defined $cur) {
                 if ($start < $cur) {
-                    $ret .= $dayAbbrev[$start] . '-' . $dayAbbrev[$cur] . ',';
+                    $ret .= day_of_week_name($start) . '-' . day_of_week_name($cur) . ',';
                 } else {
-                    $ret .= $dayAbbrev[$cur] . ',';
+                    $ret .= day_of_week_name($cur) . ',';
                 }
             }
             $cur = $daynum;
@@ -53,13 +68,54 @@ sub get_day_of_week($) {
     return $day_of_week;
 }
 
-sub rule_for_day_of_week($$$)
-{
-    my ($day_of_week, $opening, $ref_all_openings) = @_;
-    my @all_openings = @$ref_all_openings;
-    my $rule = "";
+sub year_for_all($) {
+    my $ref_dates = shift;
+    my @dates = @$ref_dates;
+    #print "Dates:"; show_array(@dates);
+    my $year = $1 if ($dates[0] =~ /^([0-9]{4})/);
+    foreach my $date (@dates) {
+        my $y = $1 if ($date =~ /^([0-9]{4})/);
+        return undef if ($year ne $y);
+    }
+    #print "all in year= $year\n";
+    return $year;
+}
 
-    return $rule;
+# If the input array has 2020 for all dates in [0] and 2021 for all dates in [1]
+# then return [ '2020', '' ]
+sub try_year_split($) {
+    my ($ref_dates) = @_;
+    my @date_sets = @$ref_dates;
+    my @years = ();
+    for my $i ( 0 .. $#date_sets ) {
+        my @dates = @{$date_sets[$i]};
+        my $year = year_for_all(\@dates);
+        return () unless defined $year;
+        push @years, $year;
+    }
+    $years[$#years] = ''; # Assume next year's hours will stay
+    return @years;
+}
+
+
+sub rules_for_day_of_week($$) {
+    my ($day_of_week, $ref_dates) = @_;
+    my @date_sets = @$ref_dates;  # unused
+    my $num_sets = @date_sets;
+    if ($num_sets == 1) {
+        # Stable opening times -> single rule for that day
+        return ( "" );
+    }
+
+    #print "Date sets:"; show_array(@date_sets);
+    my @rules = try_year_split($ref_dates);
+    return @rules if ($#rules >= 0);
+    #return "" if ($num_dates >= 7); # Wins by majority
+
+    for my $i (0..$#date_sets) {
+        push @rules, "ERROR";
+    }
+    return @rules;
 }
 
 sub parse_args() {
@@ -120,6 +176,7 @@ sub main() {
         foreach my $day_of_week (sort keys %{$office_data{$office_id}}) {
             my %dayhash = %{$office_data{$office_id}{$day_of_week}};
             my @all_openings = keys %dayhash;
+            my @date_sets = ();
             my @del_indexes = ();
             for ( my $idx = 0; $idx <= $#all_openings; $idx++ ) {
                 my $opening = $all_openings[$idx];
@@ -130,22 +187,26 @@ sub main() {
                     # ignore special cases for now
                     #print "Ignoring $opening on " . $dates[0] . "\n";
                     unshift @del_indexes, $idx; # unshift is push_front, so we reverse the order, for the delete
+                } else {
+                    push @date_sets, [ sort @dates ];
                 }
             }
             # Delete ignored cases
             foreach my $item (@del_indexes) {
                 splice(@all_openings, $item, 1);
             }
-            my $num_openings = @all_openings;
-            if ($num_openings > 1) {
+            #print day_of_week_name($day_of_week) . " date_sets:"; show_array(@date_sets);
+            my @rules = rules_for_day_of_week($day_of_week, \@date_sets);
+            if ($rules[0] eq "ERROR-0") {
                 print "WARNING: $office_name $day_of_week has multiple outcomes: @all_openings\n";
                 foreach my $opening (@all_openings) {
                     my @dates = @{$dayhash{$opening}};
                     print "   $opening on @dates\n";
                 }
             }
-            foreach my $opening (@all_openings) {
-                my $rule = rule_for_day_of_week($day_of_week, $opening, \@all_openings);
+            for ( my $idx = 0; $idx <= $#all_openings; $idx++ ) {
+                my $opening = $all_openings[$idx];
+                my $rule = $rules[$idx];
                 $office_times{$office_id}{$day_of_week}{$rule} = $opening;
                 $days_for_times{$office_id}{$rule}{$opening} .= $day_of_week;
                 #print "$office_name $day_of_week rule=$rule opening=$opening\n";
@@ -162,16 +223,19 @@ sub main() {
             my %rules = %{$times{$day_of_week}};
             foreach my $rule (sort(keys %rules)) {
                 my $opening = $rules{$rule};
+                #say "rule $rule opening $opening";
                 my $daynums = $days_for{$rule}{$opening};
                 if (defined $daynums) {
-                    $full_list .= "$rule " . abbrevs($daynums) . " $opening;";
+                    $full_list .= "$rule " if ($rule ne "");
+                    $full_list .= abbrevs($daynums) . " $opening; ";
+                    # The first day of the week in a range like Mo-Fr prints it all
                     undef $days_for{$rule}{$opening};
                 }
             }
         }
-        $full_list =~ s/;$//;
+        $full_list =~ s/; $//;
 
-        print "$office_name=$full_list\n";
+        print "$office_id|$office_name|$full_list\n";
     }
 }
 main();
