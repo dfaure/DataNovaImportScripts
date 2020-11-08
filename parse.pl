@@ -5,6 +5,7 @@ use strict;
 use warnings FATAL => 'all';
 use DateTime::Format::ISO8601;
 use v5.14;     # using the + prototype for show_array, new to v5.14
+use POSIX qw(strftime);
 
 sub panic($) {
     print "@_\n";
@@ -91,9 +92,10 @@ sub try_year_split($) {
         my @dates = @{$date_sets[$i]};
         my $year = year_for_all(\@dates);
         return () unless defined $year;
+        state $currentyear = strftime "%Y", localtime;
+        $year = "" if ($year == ($currentyear + 1)); # Assume next year's hours will stay
         push @years, $year;
     }
-    $years[$#years] = ''; # Assume next year's hours will stay
     return @years;
 }
 
@@ -178,7 +180,7 @@ sub main() {
             my @all_openings = keys %dayhash;
             my @date_sets = ();
             my @del_indexes = ();
-            for ( my $idx = 0; $idx <= $#all_openings; $idx++ ) {
+            for (my $idx = 0; $idx <= $#all_openings; $idx++) {
                 my $opening = $all_openings[$idx];
                 my @dates = @{$dayhash{$opening}};
                 my $numdates = @dates;
