@@ -1,11 +1,13 @@
 #!/usr/bin/perl
 
-use Text::CSV;
 use strict;
+use Text::CSV;
 use warnings FATAL => 'all';
 use DateTime::Format::ISO8601;
 use v5.14;     # using the + prototype for show_array, new to v5.14
 use POSIX qw(strftime);
+
+my $debug_me = '00023A';
 
 sub panic($) {
     print "@_\n";
@@ -69,13 +71,17 @@ sub get_day_of_week($) {
     return $day_of_week;
 }
 
+sub get_year($) {
+    return (shift =~ /^([0-9]{4})/) ? $1 : undef;
+}
+
 sub year_for_all($) {
     my $ref_dates = shift;
     my @dates = @$ref_dates;
     #print "Dates:"; show_array(@dates);
-    my $year = $1 if ($dates[0] =~ /^([0-9]{4})/);
+    my $year = get_year($dates[0]);
     foreach my $date (@dates) {
-        my $y = $1 if ($date =~ /^([0-9]{4})/);
+        my $y = get_year($date);
         return undef if ($year ne $y);
     }
     #print "all in year= $year\n";
@@ -99,18 +105,96 @@ sub try_year_split($) {
     return @years;
 }
 
+sub get_week_number($) {
+    my ($date) = @_;
+    my $dt = DateTime::Format::ISO8601->parse_datetime($date);
+    return $dt->week;
+}
+
+# If the input array has [2020-11-07 2020-11-21 ...] and [2020-10-31 2020-11-14 ...]
+# then return [ 'week 1-53/2', 'week 2-53/2' ]
+sub try_alternating_weeks($) {
+    my ($ref_dates) = @_;
+    my @date_sets = @$ref_dates;
+    my %found_odd_even = (); # $Even => 0; $Odd => 0
+    my %found_odd_even_prev_year = (); # $Even => 0; $Odd => 0
+    my @ret;
+
+    # Enum :)
+    state $None = -1;
+    state $Even = 0;
+    state $Odd = 1;
+    state @str = ( 'week 02-53/2', 'week 01-53/2' ); # 0=even, 1=odd
+
+    for my $i ( 0 .. $#date_sets ) {
+        my @dates = @{$date_sets[$i]};
+
+        show_array @dates;
+
+        my $year;
+        my $prev_year;
+        my $state_prev_year;
+
+        # Check if all weeks are even, or all odd
+        my $state = $None;
+        for my $date (@dates) {
+            my ($y, $week_number) = get_week_number($date);
+            my $new_state = ($week_number % 2);
+            if ($state == $None) {
+                $state = $new_state;
+                $year = $y;
+                $prev_year = $y;
+                #say " first state $state";
+            } else {
+                #say " next week number " . $week_number . " $y new state " . $new_state;
+                if ($new_state != $state) {
+                    # changed over the year?
+                    if ($y != $year) {
+                        return () if $found_odd_even_prev_year{$state};
+                        $found_odd_even_prev_year{$state} = 1;
+                        $state_prev_year = $state;
+                        $year = $y;
+                        $state = $new_state;
+                    } else {
+                        return ();
+                    }
+                }
+            }
+        }
+        #say "state=$state";
+        die if $state == $None; # surely dates isn't empty?
+        return () if $found_odd_even{$state};
+        $found_odd_even{$state} = 1;
+
+        if (defined $state_prev_year) {
+            push @ret, "$prev_year " . $str[$state_prev_year] . "|" . $str[$state];
+        } else {
+            push @ret, $str[$state];
+        }
+    }
+
+    # We know there are more than one date_sets (in caller) and
+    # 3+ would fail the found_odd_even test. So there must be 2 exactly.
+    return @ret;
+}
+
 sub rules_for_day_of_week($$) {
     my ($day_of_week, $ref_dates) = @_;
-    my @date_sets = @$ref_dates;  # unused
+    my @date_sets = @$ref_dates;
     my $num_sets = @date_sets;
     if ($num_sets == 1) {
         # Stable opening times -> single rule for that day
         return ( "" );
     }
+    my @rules;
 
     #print "Date sets:"; show_array(@date_sets);
-    my @rules = try_year_split($ref_dates);
+    @rules = try_year_split($ref_dates);
     return @rules if ($#rules >= 0);
+
+    @rules = try_alternating_weeks($ref_dates);
+    return @rules if ($#rules >= 0);
+
     #return "" if ($num_dates >= 7); # Wins by majority
 
     for my $i (0..$#date_sets) {
@@ -181,15 +265,15 @@ sub main() {
             my @del_indexes = ();
             for (my $idx = 0; $idx <= $#all_openings; $idx++) {
                 my $opening = $all_openings[$idx];
-                my @dates = @{$dayhash{$opening}};
+                my @dates = sort @{$dayhash{$opening}};
                 my $numdates = @dates;
-                #print "$office_name $day_of_week $opening $numdates dates: @dates\n";
+                print "$office_name $day_of_week $opening $numdates dates: @dates\n" if ($office_id eq $debug_me);
                 if ($numdates == 1) {
                     # ignore special cases for now
                     #print "Ignoring $opening on " . $dates[0] . "\n";
                     unshift @del_indexes, $idx; # unshift is push_front, so we reverse the order, for the delete
                 } else {
-                    push @date_sets, [ sort @dates ];
+                    push @date_sets, [ @dates ];
                 }
             }
             # Delete ignored cases
@@ -201,7 +285,7 @@ sub main() {
             if ($rules[0] eq "ERROR-0") {
                 print "WARNING: $office_name $day_of_week has multiple outcomes: @all_openings\n";
                 foreach my $opening (@all_openings) {
-                    my @dates = @{$dayhash{$opening}};
+                    my @dates = sort @{$dayhash{$opening}};
                     print "   $opening on @dates\n";
                 }
             }
@@ -224,11 +308,17 @@ sub main() {
             my %rules = %{$times{$day_of_week}};
             foreach my $rule (sort(keys %rules)) {
                 my $opening = $rules{$rule};
-                #say "rule $rule opening $opening";
+                #say "rule $rule opening $opening" if ($office_id eq $debug_me);
                 my $daynums = $days_for{$rule}{$opening};
                 if (defined $daynums) {
-                    $full_list .= "$rule " if ($rule ne "");
-                    $full_list .= abbrevs($daynums) . " $opening; ";
+                    if ($rule eq "") {
+                        $full_list .= abbrevs($daynums) . " $opening; ";
+                    } else {
+                        foreach my $single_rule (split /\|/, $rule) {
+                            $full_list .= "$single_rule " if ($single_rule ne "");
+                            $full_list .= abbrevs($daynums) . " $opening; ";
+                        }
+                    }
                     # The first day of the week in a range like Mo-Fr prints it all
                     undef $days_for{$rule}{$opening};
                 }
