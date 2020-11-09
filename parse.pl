@@ -167,7 +167,9 @@ sub try_alternating_weeks($) {
         $found_odd_even{$state} = 1;
 
         if (defined $state_prev_year) {
-            push @ret, "$prev_year " . $str[$state_prev_year] . "|" . $str[$state];
+            # Next year is the general rule, prev year is an override, so it comes second.
+            # The '|' is an internal syntax, split up before outputting OSM rules
+            push @ret, $str[$state] . "|$prev_year " . $str[$state_prev_year];
         } else {
             push @ret, $str[$state];
         }
@@ -302,27 +304,37 @@ sub main() {
     foreach my $office_id (sort(keys %office_times)) {
         my $office_name = $office_names{$office_id};
         my $full_list = "";
+        my $specific_list = ""; # put "current year" stuff at the end
         my %times = %{$office_times{$office_id}};
         my %days_for = %{$days_for_times{$office_id}};
         foreach my $day_of_week (sort(keys %times)) {
             my %rules = %{$times{$day_of_week}};
             foreach my $rule (sort(keys %rules)) {
                 my $opening = $rules{$rule};
-                #say "rule $rule opening $opening" if ($office_id eq $debug_me);
+                say "rule '$rule' opening $opening" if ($office_id eq $debug_me);
                 my $daynums = $days_for{$rule}{$opening};
                 if (defined $daynums) {
                     if ($rule eq "") {
                         $full_list .= abbrevs($daynums) . " $opening; ";
                     } else {
-                        foreach my $single_rule (split /\|/, $rule) {
-                            $full_list .= "$single_rule " if ($single_rule ne "");
-                            $full_list .= abbrevs($daynums) . " $opening; ";
+                        my @splitted = split /\|/, $rule;
+                        my $main_rule = shift @splitted;
+                        $full_list .= "$main_rule " if ($main_rule ne "");
+                        $full_list .= abbrevs($daynums) . " $opening; ";
+                        # Move any other rule (e.g. 2020) to the end
+                        foreach my $single_rule (@splitted) {
+                            $specific_list .= "$single_rule " if ($single_rule ne "");
+                            $specific_list .= abbrevs($daynums) . " $opening; ";
                         }
                     }
                     # The first day of the week in a range like Mo-Fr prints it all
                     undef $days_for{$rule}{$opening};
                 }
             }
+            # Flush specific list for that day-of-week
+            # This is to ensure PH is always last
+            $full_list .= $specific_list;
+            $specific_list = "";
         }
         $full_list =~ s/; $//;
 
