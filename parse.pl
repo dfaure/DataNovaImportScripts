@@ -7,7 +7,7 @@ use DateTime::Format::ISO8601;
 use v5.14;     # using the + prototype for show_array, new to v5.14
 use POSIX qw(strftime);
 
-my $debug_me = '00023A';
+my $debug_me = '06173A';
 
 sub panic($) {
     print "@_\n";
@@ -75,6 +75,23 @@ sub get_year($) {
     return (shift =~ /^([0-9]{4})/) ? $1 : undef;
 }
 
+sub get_month($) {
+   my ($date) = @_;
+   my $dt = DateTime::Format::ISO8601->parse_datetime($date);
+   return $dt->month();
+}
+
+sub next_month($) {
+    my ($month) = @_;
+    return $month % 12 + 1;
+}
+
+sub get_week_number($) {
+    my ($date) = @_;
+    my $dt = DateTime::Format::ISO8601->parse_datetime($date);
+    return $dt->week;
+}
+
 sub year_for_all($) {
     my $ref_dates = shift;
     my @dates = @$ref_dates;
@@ -105,10 +122,42 @@ sub try_year_split($) {
     return @years;
 }
 
-sub get_week_number($) {
-    my ($date) = @_;
-    my $dt = DateTime::Format::ISO8601->parse_datetime($date);
-    return $dt->week;
+sub last_week_of_month_for_all($) {
+    my $ref_dates = shift;
+    my @dates = @$ref_dates;
+    my $current_month;
+    for my $date (@dates) {
+        my $dt = DateTime::Format::ISO8601->parse_datetime($date);
+        # last week of the month?
+        if ($dt->month != $dt->clone()->add(days => 7)->month) {
+            if (!defined $current_month || next_month($current_month) == $dt->month) {
+                $current_month = $dt->month;
+            } else {
+                return 0;
+            }
+        } else {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+# If the input array always has last-week-of-month in [0] and everything else in [1] (or vice-versa)
+# then return [ '[-1]', '' ], but the [-1] has to be generated AFTER...
+sub try_last_week_of_month($) {
+    my ($ref_dates) = @_;
+    my @date_sets = @$ref_dates;
+    my @rules;
+    my %seen; # keys 0 and 1
+    for my $i ( 0 .. $#date_sets ) {
+        my $all_last_week = 1;
+        my @dates = @{$date_sets[$i]};
+        my $yes = last_week_of_month_for_all(\@dates);
+        return () if defined $seen{$yes};
+        $seen{$yes} = 1;
+        push @rules, $yes ? "[-1]" : "";
+    }
+    return @rules;
 }
 
 # If the input array has [2020-11-07 2020-11-21 ...] and [2020-10-31 2020-11-14 ...]
@@ -128,8 +177,6 @@ sub try_alternating_weeks($) {
 
     for my $i ( 0 .. $#date_sets ) {
         my @dates = @{$date_sets[$i]};
-
-        show_array @dates;
 
         my $year;
         my $prev_year;
@@ -195,6 +242,9 @@ sub rules_for_day_of_week($$) {
     return @rules if ($#rules >= 0);
 
     @rules = try_alternating_weeks($ref_dates);
+    return @rules if ($#rules >= 0);
+
+    @rules = try_last_week_of_month($ref_dates);
     return @rules if ($#rules >= 0);
 
     #return "" if ($num_dates >= 7); # Wins by majority
