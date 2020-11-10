@@ -258,9 +258,9 @@ sub rules_for_day_of_week($$) {
 sub write_rule($$$) {
     my ($rule, $daynums, $opening) = @_;
     my $str = "";
-    $str = "$rule " if ($rule =~ /^([0-9]{4})/);
+    $str = "$rule " if ($rule !~ /^\[/); # year or week number
     $str .= abbrevs($daynums);
-    $str .= "$rule" if ($rule !~ /^([0-9]{4})/); # e.g. [-1]
+    $str .= "$rule" if ($rule =~ /^\[/); # e.g. [-1]
     $str .= " $opening; ";
     return $str;
 }
