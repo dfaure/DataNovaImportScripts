@@ -7,7 +7,7 @@ use DateTime::Format::ISO8601;
 use v5.14;     # using the + prototype for show_array, new to v5.14
 use POSIX qw(strftime);
 
-my $debug_me = '06173A';
+my $debug_me = 'ZZ';
 
 sub panic($) {
     print "@_\n";
