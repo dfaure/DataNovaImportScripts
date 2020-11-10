@@ -255,6 +255,13 @@ sub rules_for_day_of_week($$) {
     return @rules;
 }
 
+sub write_rule($$$) {
+    my ($main_rule, $daynums, $opening) = @_;
+    my $str = "$main_rule " if ($main_rule ne "");
+    $str .= abbrevs($daynums) . " $opening; ";
+    return $str;
+}
+
 sub parse_args() {
     my $csv_file;
     while (my $arg = shift(@ARGV)) {
@@ -369,12 +376,10 @@ sub main() {
                     } else {
                         my @splitted = split /\|/, $rule;
                         my $main_rule = shift @splitted;
-                        $full_list .= "$main_rule " if ($main_rule ne "");
-                        $full_list .= abbrevs($daynums) . " $opening; ";
+                        $full_list .= write_rule($main_rule, $daynums, $opening);
                         # Move any other rule (e.g. 2020) to the end
                         foreach my $single_rule (@splitted) {
-                            $specific_list .= "$single_rule " if ($single_rule ne "");
-                            $specific_list .= abbrevs($daynums) . " $opening; ";
+                            $specific_list .= write_rule($single_rule, $daynums, $opening);
                         }
                     }
                     # The first day of the week in a range like Mo-Fr prints it all
