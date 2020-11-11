@@ -65,7 +65,7 @@ sub get_day_of_week($) {
     my $dt = DateTime::Format::ISO8601->parse_datetime($date);
     my $day_of_week = $dt->day_of_week; # 1-7 (Monday is 1)
     # Jours fériés
-    if ($date eq "2020-11-11" || $date eq "2020-12-25" || $date eq "2021-01-01") {
+    if ($date eq "2020-11-01" || $date eq "2020-11-11" || $date eq "2020-12-25" || $date eq "2021-01-01") {
         $day_of_week = 8;
     }
     return $day_of_week;
@@ -137,6 +137,7 @@ sub try_chronological_change($) {
             $min = $date;
         }
     }
+
     my $all_before = 1;
     my $all_after = 1;
     for my $i ( 1 .. $#date_sets ) {
@@ -144,10 +145,11 @@ sub try_chronological_change($) {
         my @dates = @{$date_sets[$i]};
         foreach my $date (@dates) {
             $all_before = 0 if ($date lt $max);
-            $all_after = 0 if ($date lt $min);
+            $all_after = 0 if ($date gt $min);
             return () if (!$all_before && !$all_after);
         }
     }
+
     return @ret_keep_first if ($all_after);
     return ('NEVER' , '') if ($all_before && $#date_sets == 1);
     return ();
@@ -332,6 +334,7 @@ sub main() {
         die unless defined $name;
         $office_names{$office_id} = $name;
         my $date = $row->[2];
+        die unless defined $date;
         my $opening = $row->[3];
         if ($row->[4] ne '') {
             $opening .= "," . $row->[4];
@@ -363,10 +366,10 @@ sub main() {
                 my $opening = $all_openings[$idx];
                 my @dates = sort @{$dayhash{$opening}};
                 my $numdates = @dates;
-                print "$office_name $day_of_week $opening $numdates dates: @dates\n" if ($office_id eq $debug_me);
-                if ($numdates == 1) {
-                    # ignore special cases for now
-                    #print "Ignoring $opening on " . $dates[0] . "\n";
+                print "$office_name: " . day_of_week_name($day_of_week) . " $opening $numdates dates: @dates\n" if ($office_id eq $debug_me);
+                if ($numdates == 1 && $#all_openings > 0) {
+                    # ignore single-day-exceptions for now
+                    #print "$office_name: ignoring $opening on " . $dates[0] . "\n";
                     unshift @del_indexes, $idx; # unshift is push_front, so we reverse the order, for the delete
                 } else {
                     push @date_sets, [ @dates ];
@@ -379,7 +382,7 @@ sub main() {
             #print day_of_week_name($day_of_week) . " date_sets:"; show_array(@date_sets);
             my @rules = rules_for_day_of_week($day_of_week, \@date_sets);
             if ($rules[0] eq "ERROR-0") {
-                print "WARNING: $office_name $day_of_week has multiple outcomes: @all_openings\n";
+                print "WARNING: $office_name: " . day_of_week_name($day_of_week) . " has multiple outcomes: @all_openings\n";
                 foreach my $opening (@all_openings) {
                     my @dates = sort @{$dayhash{$opening}};
                     print "   $opening on @dates\n";
