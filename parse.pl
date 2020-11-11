@@ -382,10 +382,10 @@ sub main() {
             #print day_of_week_name($day_of_week) . " date_sets:"; show_array(@date_sets);
             my @rules = rules_for_day_of_week($day_of_week, \@date_sets);
             if ($rules[0] eq "ERROR-0") {
-                print "WARNING: $office_name: " . day_of_week_name($day_of_week) . " has multiple outcomes: @all_openings\n";
+                print STDERR "WARNING: $office_name: " . day_of_week_name($day_of_week) . " has multiple outcomes: @all_openings\n";
                 foreach my $opening (@all_openings) {
                     my @dates = sort @{$dayhash{$opening}};
-                    print "   $opening on @dates\n";
+                    print STDERR "   $opening on @dates\n";
                 }
             }
             for ( my $idx = 0; $idx <= $#all_openings; $idx++ ) {
