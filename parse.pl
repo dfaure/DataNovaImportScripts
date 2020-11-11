@@ -7,7 +7,7 @@ use DateTime::Format::ISO8601;
 use v5.14;     # using the + prototype for show_array, new to v5.14
 use POSIX qw(strftime);
 
-my $debug_me = 'ZZ';
+my $debug_me = 'NONE';
 
 sub panic($) {
     print "@_\n";
@@ -120,6 +120,37 @@ sub try_year_split($) {
         push @years, $year;
     }
     return @years;
+}
+
+sub try_chronological_change($) {
+    my ($ref_dates) = @_;
+    my @date_sets = @$ref_dates;
+    my $min;
+    my $max;
+    my @dates = @{$date_sets[0]};
+    my @ret_keep_first = ('');
+    foreach my $date (@dates) {
+        if (!defined $max || $max lt $date) {
+            $max = $date;
+        }
+        if (!defined $min || $min gt $date) {
+            $min = $date;
+        }
+    }
+    my $all_before = 1;
+    my $all_after = 1;
+    for my $i ( 1 .. $#date_sets ) {
+        push @ret_keep_first, 'NEVER';
+        my @dates = @{$date_sets[$i]};
+        foreach my $date (@dates) {
+            $all_before = 0 if ($date lt $max);
+            $all_after = 0 if ($date lt $min);
+            return () if (!$all_before && !$all_after);
+        }
+    }
+    return @ret_keep_first if ($all_after);
+    return ('NEVER' , '') if ($all_before && $#date_sets == 1);
+    return ();
 }
 
 sub last_week_of_month_for_all($) {
@@ -247,6 +278,9 @@ sub rules_for_day_of_week($$) {
     @rules = try_last_week_of_month($ref_dates);
     return @rules if ($#rules >= 0);
 
+    @rules = try_chronological_change($ref_dates);
+    return @rules if ($#rules >= 0);
+
     #return "" if ($num_dates >= 7); # Wins by majority
 
     for my $i (0..$#date_sets) {
@@ -370,6 +404,7 @@ sub main() {
         foreach my $day_of_week (sort(keys %times)) {
             my %rules = %{$times{$day_of_week}};
             foreach my $rule (sort(keys %rules)) {
+                next if $rule eq 'NEVER';
                 my $opening = $rules{$rule};
                 say "rule '$rule' opening $opening" if ($office_id eq $debug_me);
                 my $daynums = $days_for{$rule}{$opening};
