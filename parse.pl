@@ -431,9 +431,11 @@ sub main() {
         my %days_for = %{$days_for_times{$office_id}};
         foreach my $day_of_week (sort(keys %times)) {
             my %rules = %{$times{$day_of_week}};
+            my $numrules = %rules;
             foreach my $rule (sort(keys %rules)) {
                 next if $rule eq 'NEVER';
                 my $opening = $rules{$rule};
+                next if $opening eq 'off' and $numrules == 1; # off is default anyway
                 say "rule '$rule' opening $opening" if ($office_id eq $debug_me);
                 my $daynums = $days_for{$rule}{$opening};
                 if (defined $daynums) {
