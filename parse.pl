@@ -461,7 +461,11 @@ sub main() {
         }
         $full_list =~ s/; $//;
 
-        print "$office_id|$office_name|$full_list\n";
+        if (length($full_list) > 255) {
+            print STDERR "ERROR: rule too long (" . length($full_list) . ") $office_id|$office_name|$full_list\n";
+        } else {
+            print "$office_id|$office_name|$full_list\n";
+        }
     }
 }
 main();
