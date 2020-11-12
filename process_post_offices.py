@@ -15,8 +15,11 @@ with open('data/new_opening_hours') as f:
     lines = f.readlines() # list containing lines of file
     for line in lines:
         data = [item.strip() for item in line.split('|')]
-        hours_dict[data[0]] = data[2]
-        office_names[data[0]] = data[1]
+        if len(data) < 3:
+            print("ERROR: invalid line " + line)
+        else:
+            hours_dict[data[0]] = data[2]
+            office_names[data[0]] = data[1]
 
 # parse XML
 root = ET.fromstring(response)

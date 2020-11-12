@@ -7,7 +7,8 @@ use DateTime::Format::ISO8601;
 use v5.14;     # using the + prototype for show_array, new to v5.14
 use POSIX qw(strftime);
 
-my $debug_me = 'NONE';
+my $debug_me = 'NONE'; # TODO pass on command line?
+my $file_start_date; # get it from the input file so that time passing doesn't break unittests
 
 sub panic($) {
     print "@_\n";
@@ -81,6 +82,13 @@ sub get_month($) {
    return $dt->month();
 }
 
+# Previous month, 1-based.  previous_month(1) == 12
+sub previous_month($) {
+    my ($month) = @_;
+    return ($month + 10) % 12 + 1;
+}
+
+# Next month, 1-based.  next_month(12) == 1
 sub next_month($) {
     my ($month) = @_;
     return $month % 12 + 1;
@@ -115,7 +123,7 @@ sub try_year_split($) {
         my @dates = @{$date_sets[$i]};
         my $year = year_for_all(\@dates);
         return () unless defined $year;
-        state $currentyear = strftime "%Y", localtime;
+        state $currentyear = get_year($file_start_date);
         $year = "" if ($year == ($currentyear + 1)); # Assume next year's hours will stay
         push @years, $year;
     }
@@ -161,14 +169,22 @@ sub try_chronological_change($) {
 sub same_weekday_of_month_for_all($$) {
     my ($ref_dates, $which) = @_;
     my @dates = @$ref_dates;
+    return 0 if $#dates < 2; # Not enough
+    state $file_dt = DateTime::Format::ISO8601->parse_datetime($file_start_date);
     my $current_month;
+    if ($which == -1) {
+        $current_month = previous_month($file_dt->month);
+    } else {
+        # Do we expect to see the Nth "weekday" for this month, or is it in the past already?
+        $current_month = $file_dt->weekday_of_month <= $which ? previous_month($file_dt->month) : $file_dt->month;
+    }
     for my $date (@dates) {
         my $dt = DateTime::Format::ISO8601->parse_datetime($date);
         # last week of the month?
         #say "  $which: $date has weekday_of_month: " . $dt->weekday_of_month;
         if (($which == -1 && $dt->month != $dt->clone()->add(days => 7)->month)
           || ($which > 0 && $dt->weekday_of_month == $which)) {
-            if (!defined $current_month || next_month($current_month) == $dt->month) {
+            if (next_month($current_month) == $dt->month) {
                 $current_month = $dt->month;
             } else {
                 return 0;
@@ -343,6 +359,7 @@ sub main() {
         $office_names{$office_id} = $name;
         my $date = $row->[2];
         die unless defined $date;
+        $file_start_date = $date if (!defined $file_start_date or $date lt $file_start_date);
         my $opening = $row->[3];
         if ($row->[4] ne '') {
             $opening .= "," . $row->[4];
