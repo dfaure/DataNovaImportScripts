@@ -216,9 +216,10 @@ sub try_same_weekday_of_month($$) {
 
 # If the input array has [2020-11-07 2020-11-21 ...] and [2020-10-31 2020-11-14 ...]
 # then return [ 'week 1-53/2', 'week 2-53/2' ]
-sub try_alternating_weeks($) {
-    my ($ref_dates) = @_;
+sub try_alternating_weeks($$) {
+    my ($ref_dates, $ref_openings) = @_;
     my @date_sets = @$ref_dates;
+    my @openings = @$ref_openings;
     my %found_odd_even = (); # $Even => 0; $Odd => 0
     my %found_odd_even_prev_year = (); # $Even => 0; $Odd => 0
     my @ret;
@@ -270,7 +271,11 @@ sub try_alternating_weeks($) {
         if (defined $state_prev_year) {
             # Next year is the general rule, prev year is an override, so it comes second.
             # The '|' is an internal syntax, split up before outputting OSM rules
-            push @ret, $str[$state] . "|$prev_year " . $str[$state_prev_year];
+            if ($openings[$i] eq 'off') {
+                push @ret, "NEVER|$prev_year " . $str[$state_prev_year];
+            } else {
+                push @ret, $str[$state] . "|$prev_year " . $str[$state_prev_year];
+            }
         } else {
             push @ret, $str[$state];
         }
@@ -281,8 +286,13 @@ sub try_alternating_weeks($) {
     return @ret;
 }
 
-sub rules_for_day_of_week($$) {
-    my ($day_of_week, $ref_dates) = @_;
+# Main function for the core logic of this script.
+# Called for one day of week at a time
+# @date_sets : N sets of dates that have the same opening hours
+# @openings : those N sets of openings (not much used here)
+# Returns N sets of OSM rules
+sub rules_for_day_of_week($$$) {
+    my ($day_of_week, $ref_dates, $ref_openings) = @_;
     my @date_sets = @$ref_dates;
     my $num_sets = @date_sets;
     if ($num_sets == 1) {
@@ -295,7 +305,7 @@ sub rules_for_day_of_week($$) {
     @rules = try_year_split($ref_dates);
     return @rules if ($#rules >= 0);
 
-    @rules = try_alternating_weeks($ref_dates);
+    @rules = try_alternating_weeks($ref_dates, $ref_openings);
     return @rules if ($#rules >= 0);
 
     for my $which(-1, 1 .. 4) {
@@ -405,7 +415,7 @@ sub main() {
                 splice(@all_openings, $item, 1);
             }
             #print day_of_week_name($day_of_week) . " date_sets:"; show_array(@date_sets);
-            my @rules = rules_for_day_of_week($day_of_week, \@date_sets);
+            my @rules = rules_for_day_of_week($day_of_week, \@date_sets, \@all_openings);
             if ($rules[0] eq "ERROR-0") {
                 print STDERR "WARNING: $office_name: " . day_of_week_name($day_of_week) . " has multiple outcomes: @all_openings\n";
                 foreach my $opening (@all_openings) {
@@ -435,16 +445,19 @@ sub main() {
             foreach my $rule (sort(keys %rules)) {
                 next if $rule eq 'NEVER';
                 my $opening = $rules{$rule};
-                next if $opening eq 'off' and $rule eq ''; # off is default anyway
                 say "rule '$rule' opening $opening" if ($office_id eq $debug_me);
                 my $daynums = $days_for{$rule}{$opening};
                 if (defined $daynums) {
                     if ($rule eq "") {
-                        $full_list .= abbrevs($daynums) . " $opening; ";
+                        if ($opening ne 'off') { # off is default anyway
+                            $full_list .= abbrevs($daynums) . " $opening; ";
+                        }
                     } else {
                         my @splitted = split /\|/, $rule;
                         my $main_rule = shift @splitted;
-                        $full_list .= write_rule($main_rule, $daynums, $opening);
+                        if ($main_rule ne 'NEVER') {
+                            $full_list .= write_rule($main_rule, $daynums, $opening);
+                        }
                         # Move any other rule (e.g. 2020) to the end
                         foreach my $single_rule (@splitted) {
                             $specific_list .= write_rule($single_rule, $daynums, $opening);
