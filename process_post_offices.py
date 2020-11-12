@@ -40,4 +40,4 @@ for child in root:
                     opening_hours_tag.set('v', new_opening_hours)
                     child.set('action', 'modify')
 
-tree.write('data/osm_post_offices.osm', 'unicode')
+tree.write('data/osm_post_offices.osm', 'unicode', True)
