@@ -435,7 +435,7 @@ sub main() {
             foreach my $rule (sort(keys %rules)) {
                 next if $rule eq 'NEVER';
                 my $opening = $rules{$rule};
-                next if $opening eq 'off' and $numrules == 1; # off is default anyway
+                next if $opening eq 'off' and $rule eq ''; # off is default anyway
                 say "rule '$rule' opening $opening" if ($office_id eq $debug_me);
                 my $daynums = $days_for{$rule}{$opening};
                 if (defined $daynums) {
