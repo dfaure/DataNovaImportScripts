@@ -155,14 +155,19 @@ sub try_chronological_change($) {
     return ();
 }
 
-sub last_week_of_month_for_all($) {
-    my $ref_dates = shift;
+# Return 1 if all dates in the $1 array are the $2th "weekday" of the month.
+# $2 is 1 for first "weekday" of the month (e.g. first saturday)
+# $2 is -1 for last "weekday" of the month (e.g. last saturday)
+sub same_weekday_of_month_for_all($$) {
+    my ($ref_dates, $which) = @_;
     my @dates = @$ref_dates;
     my $current_month;
     for my $date (@dates) {
         my $dt = DateTime::Format::ISO8601->parse_datetime($date);
         # last week of the month?
-        if ($dt->month != $dt->clone()->add(days => 7)->month) {
+        #say "  $which: $date has weekday_of_month: " . $dt->weekday_of_month;
+        if (($which == -1 && $dt->month != $dt->clone()->add(days => 7)->month)
+          || ($which > 0 && $dt->weekday_of_month == $which)) {
             if (!defined $current_month || next_month($current_month) == $dt->month) {
                 $current_month = $dt->month;
             } else {
@@ -175,20 +180,20 @@ sub last_week_of_month_for_all($) {
     return 1;
 }
 
-# If the input array always has last-week-of-month in [0] and everything else in [1] (or vice-versa)
+# If the input array always has last-weekday-of-month in [0] and everything else in [1] (or vice-versa)
 # then return [ '[-1]', '' ], but the [-1] has to be generated AFTER...
-sub try_last_week_of_month($) {
-    my ($ref_dates) = @_;
+sub try_same_weekday_of_month($$) {
+    my ($ref_dates, $which) = @_;
     my @date_sets = @$ref_dates;
     my @rules;
     my %seen; # keys 0 and 1
     for my $i ( 0 .. $#date_sets ) {
-        my $all_last_week = 1;
+        my $all_same_week = 1;
         my @dates = @{$date_sets[$i]};
-        my $yes = last_week_of_month_for_all(\@dates);
+        my $yes = same_weekday_of_month_for_all(\@dates, $which);
         return () if defined $seen{$yes};
         $seen{$yes} = 1;
-        push @rules, $yes ? "[-1]" : "";
+        push @rules, $yes ? "[$which]" : "";
     }
     return @rules;
 }
@@ -277,8 +282,11 @@ sub rules_for_day_of_week($$) {
     @rules = try_alternating_weeks($ref_dates);
     return @rules if ($#rules >= 0);
 
-    @rules = try_last_week_of_month($ref_dates);
-    return @rules if ($#rules >= 0);
+    for my $which(-1, 1 .. 4) {
+        # -1 = last "weekday" of month, 1 = first "weekday" of month...
+        @rules = try_same_weekday_of_month($ref_dates, $which);
+        return @rules if ($#rules >= 0);
+    }
 
     @rules = try_chronological_change($ref_dates);
     return @rules if ($#rules >= 0);
