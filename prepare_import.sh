@@ -1,16 +1,34 @@
-# 137MB download
-# wget 'https://datanova.laposte.fr/explore/dataset/laposte_ouvertur/download/?format=csv&timezone=Europe/Berlin&lang=fr&use_labels_for_header=true&csv_separator=%3B' -O data/laposte_ouvertur.csv
+#!/bin/sh
 
-./parse.pl data/laposte_ouvertur.csv > data/new_opening_hours 2> data/warnings
+infile=data/laposte_ouvertur.csv
+if [ -n "`find $infile -mtime 6`"]; then
+    echo "Refetching datanova data..."
+    if [ -f $infile ]; then
+        mv -f $infile $infile.bak
+    fi
+    # 137MB download
+    wget 'https://datanova.laposte.fr/explore/dataset/laposte_ouvertur/download/?format=csv&timezone=Europe/Berlin&lang=fr&use_labels_for_header=true&csv_separator=%3B' -O $infile
+fi
+
+./parse.pl $infile > data/new_opening_hours 2> data/warnings
 ready=`grep -v ERROR data/new_opening_hours | wc -l`
 errors=`grep ERROR data/new_opening_hours | wc -l`
 echo "$ready post offices ready for import, $errors post offices with unresolved rules."
 echo "(see ../warnings)"
 
-./get_all_post_offices.py && ./process_post_offices.py
+xmlfile=data/osm_post_offices.xml
+osmfile=data/osm_post_offices.osm
 
-xmllint --format data/osm_post_offices.xml > _xml && mv _xml data/osm_post_offices.xml
-xmllint --format data/osm_post_offices.osm > _xml && mv _xml data/osm_post_offices.osm
+if [ -n "`find $osmfile -mtime 1`"]; then
+    echo "Refetching all post offices via overpass..."
+    ./get_all_post_offices.py || exit 1
+fi
 
-actions=`grep -w modify data/osm_post_offices.osm | wc -l`
-echo "$actions objects modified"
+./process_post_offices.py || exit 1
+
+
+xmllint --format $xmlfile > _xml && mv _xml $xmlfile
+xmllint --format $osmfile > _xml && mv _xml $osmfile
+
+actions=`grep -w modify $osmfile | wc -l`
+echo "$actions objects modified, use JOSM to import $osmfile"
