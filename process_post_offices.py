@@ -2,7 +2,8 @@
 # https://docs.python.org/3/library/xml.etree.elementtree.html#module-xml.etree.ElementTree
 import xml.etree.ElementTree as ET
 # https://github.com/rezemika/oh_sanitizer
-from oh_sanitizer import sanitize_field
+# Slow, doesn't change anything on our generated data, and breaks if bad data in OSM
+#from oh_sanitizer import sanitize_field
 
 xmlfile = open("data/osm_post_offices.xml", "r")
 response = xmlfile.read()
@@ -31,13 +32,12 @@ for child in root:
             if "ERROR" in new_opening_hours:
                 print("In datanova but not ready: " + ref + ": " + new_opening_hours)
             else:
-                new_opening_hours = sanitize_field(new_opening_hours)
                 if not old_opening_hours is None:
-                    print("Old opening hours for " + ref + ": " + sanitize_field(old_opening_hours.get('v')) + " we have " + new_opening_hours)
+                    print("Old opening hours for " + ref + ": " + old_opening_hours.get('v') + " we have " + new_opening_hours)
                 else:
                     opening_hours_tag = ET.SubElement(child, 'tag')
                     opening_hours_tag.set('k', 'opening_hours')
                     opening_hours_tag.set('v', new_opening_hours)
                     child.set('action', 'modify')
 
-tree.write('data/osm_post_offices.osm')
+tree.write('data/osm_post_offices.osm', 'unicode')
