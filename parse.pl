@@ -347,7 +347,7 @@ sub main() {
         my $day_of_week = get_day_of_week($date);
         push @{$office_data{$office_id}{$day_of_week}{$opening}}, $date;
     }
-    print "Parsed $line_nr lines\n";
+    print STDERR "Parsed $line_nr lines\n";
 
     # Aggregate the different opening hours for Mondays in different rules
     # The empty rule is the default one. But this allows for exceptions.
