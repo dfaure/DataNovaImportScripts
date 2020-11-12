@@ -473,6 +473,7 @@ sub main() {
             $specific_list = "";
         }
         $full_list =~ s/; $//;
+        $full_list =~ s/; /\;/g if (length($full_list) > 255);
 
         if (length($full_list) > 255) {
             print STDERR "ERROR: rule too long (" . length($full_list) . ") $office_id|$office_name|$full_list\n";
