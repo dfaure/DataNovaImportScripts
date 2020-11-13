@@ -61,9 +61,23 @@ sub abbrevs($) {
     return $ret;
 }
 
+sub fast_parse_datetime($) {
+    my ($date) = @_;
+    # Since we always have year-month-day, we can be much faster than the full parser
+    # parse_datetime: 83s. custom regexp: 66s.
+    # return DateTime::Format::ISO8601->parse_datetime($date);
+    if ($date =~ /^([0-9]{4})-([0-9]+)-([0-9]+)$/) {
+        return DateTime->new(
+                year       => $1,
+                month      => $2,
+                day        => $3);
+    }
+    return undef;
+}
+
 sub get_day_of_week($) {
     my ($date) = @_;
-    my $dt = DateTime::Format::ISO8601->parse_datetime($date);
+    my $dt = fast_parse_datetime($date);
     my $day_of_week = $dt->day_of_week; # 1-7 (Monday is 1)
     # Jours fériés
     if ($date eq "2020-11-01" || $date eq "2020-11-11" || $date eq "2020-12-25" || $date eq "2021-01-01") {
@@ -77,9 +91,7 @@ sub get_year($) {
 }
 
 sub get_month($) {
-   my ($date) = @_;
-   return $1 if ($date =~ /^[0-9]{4}-([0-9]+)-/);
-   return undef;
+   return (shift =~ /^[0-9]{4}-([0-9]+)-/) ? $1 : undef;
 }
 
 # Previous month, 1-based.  previous_month(1) == 12
@@ -96,7 +108,7 @@ sub next_month($) {
 
 sub get_week_number($) {
     my ($date) = @_;
-    my $dt = DateTime::Format::ISO8601->parse_datetime($date);
+    my $dt = fast_parse_datetime($date);
     return $dt->week;
 }
 
@@ -170,7 +182,7 @@ sub same_weekday_of_month_for_all($$) {
     my ($ref_dates, $which) = @_;
     my @dates = @$ref_dates;
     return 0 if $#dates < 2; # Not enough
-    state $file_dt = DateTime::Format::ISO8601->parse_datetime($file_start_date);
+    state $file_dt = fast_parse_datetime($file_start_date);
     my $current_month;
     if ($which == -1) {
         $current_month = previous_month($file_dt->month);
@@ -179,7 +191,7 @@ sub same_weekday_of_month_for_all($$) {
         $current_month = $file_dt->weekday_of_month <= $which ? previous_month($file_dt->month) : $file_dt->month;
     }
     for my $date (@dates) {
-        my $dt = DateTime::Format::ISO8601->parse_datetime($date);
+        my $dt = fast_parse_datetime($date);
         # last week of the month?
         #say "  $which: $date has weekday_of_month: " . $dt->weekday_of_month;
         if (($which == -1 && $dt->month != $dt->clone()->add(days => 7)->month)

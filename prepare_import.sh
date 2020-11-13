@@ -12,7 +12,7 @@ if [ -n "`find $infile -mtime 6`" ]; then
 fi
 
 echo "Parsing datanova data to deduce opening_hours..."
-./parse.pl $infile > data/new_opening_hours 2> data/warnings
+./parse.pl $infile > data/new_opening_hours 2> data/warnings || exit 1
 ready=`grep -v ERROR data/new_opening_hours | wc -l`
 errors=`grep ERROR data/new_opening_hours | wc -l`
 echo "$ready post offices ready for import, $errors post offices with unresolved rules."
@@ -27,11 +27,18 @@ if [ -n "`find $osmfile -mtime 1`" ]; then
 fi
 
 echo "Processing XML to insert opening times..."
-./process_post_offices.py > data/process_post_offices.log || exit 1
+log=data/process_post_offices.log
+./process_post_offices.py > $log || exit 1
 
 echo "Reformatting..."
 xmllint --format $xmlfile > _xml && mv _xml $xmlfile
 xmllint --format $osmfile > _xml && mv _xml $osmfile
+
+agree=`grep agree $log | wc -l`
+disagree=`grep OSM\ says $log | wc -l`
+notin=`grep 'not in datanova' $log | wc -l`
+notready=`grep 'not ready' $log | wc -l`
+echo "$agree agreements, $disagree disagreements, $notin not in datanova, $notready not ready (parser failed)"
 
 actions=`grep -w modify $osmfile | wc -l`
 echo "$actions objects modified, use JOSM to import $osmfile"
