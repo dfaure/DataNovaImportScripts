@@ -36,7 +36,7 @@ xmllint --format $osmfile > _xml && mv _xml $osmfile
 
 agree=`grep agree $log | wc -l`
 disagree=`grep OSM\ says $log | wc -l`
-notin=`grep 'not in datanova' $log | wc -l`
+notin=`grep 'Not in datanova' $log | wc -l`
 notready=`grep 'not ready' $log | wc -l`
 echo "$agree agreements, $disagree disagreements, $notin not in datanova, $notready not ready (parser failed)"
 
