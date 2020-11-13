@@ -75,14 +75,22 @@ sub fast_parse_datetime($) {
     return undef;
 }
 
+my %cache = ();
+
 sub get_day_of_week($) {
     my ($date) = @_;
+    my $entry = $cache{$date};
+    return $entry if defined $entry;
+
     my $dt = fast_parse_datetime($date);
     my $day_of_week = $dt->day_of_week; # 1-7 (Monday is 1)
     # Jours fériés
     if ($date eq "2020-11-01" || $date eq "2020-11-11" || $date eq "2020-12-25" || $date eq "2021-01-01") {
         $day_of_week = 8;
     }
+
+    $cache{$date} = $day_of_week;
+
     return $day_of_week;
 }
 
