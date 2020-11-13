@@ -78,8 +78,8 @@ sub get_year($) {
 
 sub get_month($) {
    my ($date) = @_;
-   my $dt = DateTime::Format::ISO8601->parse_datetime($date);
-   return $dt->month();
+   return $1 if ($date =~ /^[0-9]{4}-([0-9]+)-/);
+   return undef;
 }
 
 # Previous month, 1-based.  previous_month(1) == 12
