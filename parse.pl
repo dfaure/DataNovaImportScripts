@@ -398,8 +398,8 @@ sub main() {
             $opening .= "," . $row->[5];
         }
         die "unsupported: see line $line_nr" if ($row->[6] ne '');
-        $opening = "off" if $opening =~ /^FERME$/;
         my $day_of_week = get_day_of_week($date);
+        $opening = "off" if $opening =~ /^FERME$/ and $day_of_week != 8; # PH hack so it stays separate
         push @{$office_data{$office_id}{$day_of_week}{$opening}}, $date;
     }
     print STDERR "Parsed $line_nr lines\n";
@@ -469,7 +469,9 @@ sub main() {
                 my $daynums = $days_for{$rule}{$opening};
                 if (defined $daynums) {
                     if ($rule eq "") {
-                        if ($opening ne 'off') { # off is default anyway
+                        if ($day_of_week == 8) {
+                            $full_list .= "PH " . ($opening eq 'FERME' ? "off" : $opening) . "; ";
+                        } elsif ($opening ne 'off') { # off is default anyway (except for PH)
                             $full_list .= abbrevs($daynums) . " $opening; ";
                         }
                     } else {
@@ -494,6 +496,7 @@ sub main() {
         }
         $full_list =~ s/; $//;
         $full_list =~ s/; /\;/g if (length($full_list) > 255);
+        $full_list =~ s/;PH off//g if (length($full_list) > 255); # Oh well...
 
         if (length($full_list) > 255) {
             print STDERR "ERROR: rule too long (" . length($full_list) . ") $office_id|$office_name|$full_list\n";
