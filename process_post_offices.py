@@ -44,6 +44,21 @@ for child in root:
                         print(ref + ": agree")
                     else:
                         print(ref + ": OSM says " + old_opening_hours.get('v') + " datanova says " + new_opening_hours)
+                        fixme_tag = child.find("./tag[@k='fixme']")
+                        fixme_str="horaires à vérifier, voir si suggested:opening_hours contient la bonne valeur."
+                        if not fixme_tag is None:
+                            fixme_tag.set('v', fixme_tag.get('v') + '; ' + fixme_str)
+                        else:
+                            fixme_tag = ET.SubElement(child, 'tag')
+                            fixme_tag.set('k', 'fixme')
+                            fixme_tag.set('v', fixme_str)
+                        suggestion_tag = child.find("./tag[@k='suggested:opening_hours']")
+                        if not suggestion_tag is None:
+                            suggestion_tag.set('v', new_opening_hours)
+                        else:
+                            suggestion_tag = ET.SubElement(child, 'tag')
+                            suggestion_tag.set('k', 'suggested:opening_hours')
+                            suggestion_tag.set('v', new_opening_hours)
                 else:
                     print(ref + ": no opening_hours in OSM, adding")
                     opening_hours_tag = ET.SubElement(child, 'tag')
