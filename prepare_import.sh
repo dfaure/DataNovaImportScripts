@@ -34,11 +34,13 @@ echo "Reformatting..."
 xmllint --format $xmlfile > _xml && mv _xml $xmlfile
 xmllint --format $osmfile > _xml && mv _xml $osmfile
 
+adding=`grep 'no opening_hours in OSM' $log | wc -l`
 agree=`grep agree $log | wc -l`
 disagree=`grep OSM\ says $log | wc -l`
 notin=`grep 'Not in datanova' $log | wc -l`
 notready=`grep 'not ready' $log | wc -l`
-echo "$agree agreements, $disagree disagreements, $notin not in datanova, $notready not ready (parser failed)"
+missingPH=`grep 'missing PH off' $log | wc -l`
+echo "$adding set because empty in OSM, $missingPH only missing 'PH off', $disagree disagreements, $agree agreements, $notin not in datanova (wrong ref?), $notready not ready (parser failed)"
 
 actions=`grep -w modify $osmfile | wc -l`
 echo "$actions objects modified, use JOSM to import $osmfile"

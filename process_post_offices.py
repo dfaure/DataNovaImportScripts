@@ -36,11 +36,16 @@ for child in root:
                 print(ref + ": in datanova but not ready (parser failed): " + new_opening_hours)
             else:
                 if not old_opening_hours is None:
-                    if old_opening_hours.get('v') == new_opening_hours:
+                    if old_opening_hours.get('v') + "; PH off" == new_opening_hours:
+                        print(ref + ": missing PH off, adding")
+                        old_opening_hours.set('v', new_opening_hours)
+                        child.set('action', 'modify')
+                    elif old_opening_hours.get('v') == new_opening_hours:
                         print(ref + ": agree")
                     else:
                         print(ref + ": OSM says " + old_opening_hours.get('v') + " datanova says " + new_opening_hours)
                 else:
+                    print(ref + ": no opening_hours in OSM, adding")
                     opening_hours_tag = ET.SubElement(child, 'tag')
                     opening_hours_tag.set('k', 'opening_hours')
                     opening_hours_tag.set('v', new_opening_hours)
