@@ -28,6 +28,7 @@ for child in root:
     if child.tag == 'node' or child.tag == 'way':
         ref = child.find("./tag[@k='ref:FR:LaPoste']").get('v')
         old_opening_hours = child.find("./tag[@k='opening_hours']")
+        changed = False
         if not ref in hours_dict:
             print("Not in datanova: " + ref)
         else:
@@ -39,7 +40,7 @@ for child in root:
                     if old_opening_hours.get('v') + "; PH off" == new_opening_hours:
                         print(ref + ": missing PH off, adding")
                         old_opening_hours.set('v', new_opening_hours)
-                        child.set('action', 'modify')
+                        changed = True
                     elif old_opening_hours.get('v') == new_opening_hours:
                         print(ref + ": agree")
                     else:
@@ -59,11 +60,14 @@ for child in root:
                             suggestion_tag = ET.SubElement(child, 'tag')
                             suggestion_tag.set('k', 'suggested:opening_hours')
                             suggestion_tag.set('v', new_opening_hours)
+                        changed = True
                 else:
                     print(ref + ": no opening_hours in OSM, adding")
                     opening_hours_tag = ET.SubElement(child, 'tag')
                     opening_hours_tag.set('k', 'opening_hours')
                     opening_hours_tag.set('v', new_opening_hours)
-                    child.set('action', 'modify')
+                    changed = True
+        if changed:
+            child.set('action', 'modify')
 
 tree.write('data/osm_post_offices.osm', 'unicode', True)
