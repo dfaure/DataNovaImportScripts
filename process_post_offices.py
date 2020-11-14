@@ -69,5 +69,9 @@ for child in root:
                     changed = True
         if changed:
             child.set('action', 'modify')
+            # Remove deprecated source attribute
+            source = child.find("./tag[@k='source']")
+            if not source is None:
+                child.remove(source)
 
 tree.write('data/osm_post_offices.osm', 'unicode', True)
