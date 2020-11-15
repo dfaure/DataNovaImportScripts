@@ -33,6 +33,12 @@ sub day_of_week_name($) {
     return $dayAbbrev[shift];
 }
 
+sub month_name($) {
+    state @monthNames = ( 'ERROR', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec' );
+    return $monthNames[shift];
+}
+
+
 # Turn "1235" into "Mo-We,Fr"
 sub abbrevs($) {
     my ($daynums) = @_; # ex: 1235, 8 for NH
@@ -148,6 +154,45 @@ sub try_year_split($) {
         push @years, $year;
     }
     return @years;
+}
+
+sub month_for_all($) {
+    my $ref_dates = shift;
+    my @dates = @$ref_dates;
+    return 0 if $#dates < 2; # Not enough
+    #print "Dates:"; show_array(@dates);
+    my $month = get_month($dates[0]);
+    foreach my $date (@dates) {
+        my $m = get_month($date);
+        return undef if ($month ne $m);
+    }
+    #print "all in month=$month\n";
+    return $month;
+}
+
+# If the input array has dates in one month in [0] and other months in [1]
+# then return [ 'MonthName', '' ]
+sub try_month_exception($$) {
+    my ($ref_dates, $ref_openings) = @_;
+    my @date_sets = @$ref_dates;
+    return () if $#date_sets != 1;
+    my @openings = @$ref_openings;
+    my @rules = ();
+    my $seen_exception = 0;
+    for my $i ( 0 .. $#date_sets ) {
+        my @dates = @{$date_sets[$i]};
+        my $month = month_for_all(\@dates);
+        if (defined $month) {
+            return () if $seen_exception; # only one
+            my $year = year_for_all(\@dates);
+            die unless defined $year; # surely same month = same year
+            push @rules, "$year " . month_name($month);
+            $seen_exception = 1;
+        } else {
+            push @rules, '';
+        }
+    }
+    return $seen_exception ? @rules : ();
 }
 
 sub try_chronological_change($) {
@@ -337,6 +382,9 @@ sub rules_for_day_of_week($$$) {
     @rules = try_chronological_change($ref_dates);
     return @rules if ($#rules >= 0);
 
+    @rules = try_month_exception($ref_dates, $ref_openings);
+    return @rules if ($#rules >= 0);
+
     #return "" if ($num_dates >= 7); # Wins by majority
 
     for my $i (0..$#date_sets) {
@@ -421,7 +469,7 @@ sub main() {
                 my $opening = $all_openings[$idx];
                 my @dates = sort @{$dayhash{$opening}};
                 my $numdates = @dates;
-                print "$office_name: " . day_of_week_name($day_of_week) . " $opening $numdates dates: @dates\n" if ($office_id eq $debug_me);
+                print STDERR "$office_name: " . day_of_week_name($day_of_week) . " $opening $numdates dates: @dates\n" if ($office_id eq $debug_me);
                 if ($numdates == 1 && $#all_openings > 0) {
                     # ignore single-day-exceptions for now
                     #print "$office_name: ignoring $opening on " . $dates[0] . "\n";
@@ -437,7 +485,7 @@ sub main() {
             #print day_of_week_name($day_of_week) . " date_sets:"; show_array(@date_sets);
             my @rules = rules_for_day_of_week($day_of_week, \@date_sets, \@all_openings);
             if ($rules[0] eq "ERROR-0") {
-                print STDERR "WARNING: $office_name: " . day_of_week_name($day_of_week) . " has multiple outcomes: @all_openings\n";
+                print STDERR "WARNING: $office_id:$office_name: " . day_of_week_name($day_of_week) . " has multiple outcomes: @all_openings\n";
                 foreach my $opening (@all_openings) {
                     my @dates = sort @{$dayhash{$opening}};
                     print STDERR "   $opening on @dates\n";
@@ -465,7 +513,7 @@ sub main() {
             foreach my $rule (sort(keys %rules)) {
                 next if $rule eq 'NEVER';
                 my $opening = $rules{$rule};
-                say "rule '$rule' opening $opening" if ($office_id eq $debug_me);
+                print STDERR "rule '$rule' opening $opening\n" if ($office_id eq $debug_me);
                 my $daynums = $days_for{$rule}{$opening};
                 if (defined $daynums) {
                     if ($rule eq "") {
