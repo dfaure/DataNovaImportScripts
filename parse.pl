@@ -179,21 +179,30 @@ sub try_month_exception($$) {
     return () if $#date_sets != 1;
     my @openings = @$ref_openings;
     my @rules = ();
-    my $seen_exception = 0;
+    my $date_set_number;
+    my $exception_month;
     for my $i ( 0 .. $#date_sets ) {
         my @dates = @{$date_sets[$i]};
         my $month = month_for_all(\@dates);
         if (defined $month) {
-            return () if $seen_exception; # only one
+            return () if defined $date_set_number; # only one
+            $date_set_number = $i;
             my $year = year_for_all(\@dates);
             die "@dates has $month but no year?" unless defined $year; # surely same month = same year
             push @rules, "$year " . month_name($month);
-            $seen_exception = 1;
+            $exception_month = $month;
         } else {
             push @rules, '';
         }
     }
-    return $seen_exception ? @rules : ();
+    return () if not defined $date_set_number;
+    die if not defined $exception_month; # they are defined together
+    # Check that the other date set has no date in that month
+    my $other_date_set = 1 - $date_set_number; # 0->1, 1->0
+    foreach my $date (@{$date_sets[$other_date_set]}) {
+        return () if get_month($date) eq $exception_month;
+    }
+    return @rules;
 }
 
 sub try_chronological_change($) {
