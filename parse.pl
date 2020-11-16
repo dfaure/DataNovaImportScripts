@@ -129,6 +129,7 @@ sub get_week_number($) {
 sub year_for_all($) {
     my $ref_dates = shift;
     my @dates = @$ref_dates;
+    return undef if $#dates < 2; # Not enough
     #print "Dates:"; show_array(@dates);
     my $year = get_year($dates[0]);
     foreach my $date (@dates) {
@@ -159,7 +160,7 @@ sub try_year_split($) {
 sub month_for_all($) {
     my $ref_dates = shift;
     my @dates = @$ref_dates;
-    return 0 if $#dates < 2; # Not enough
+    return undef if $#dates < 2; # Not enough
     #print "Dates:"; show_array(@dates);
     my $month = get_month($dates[0]);
     foreach my $date (@dates) {
@@ -185,7 +186,7 @@ sub try_month_exception($$) {
         if (defined $month) {
             return () if $seen_exception; # only one
             my $year = year_for_all(\@dates);
-            die unless defined $year; # surely same month = same year
+            die "@dates has $month but no year?" unless defined $year; # surely same month = same year
             push @rules, "$year " . month_name($month);
             $seen_exception = 1;
         } else {
