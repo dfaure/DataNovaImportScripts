@@ -205,9 +205,13 @@ sub try_month_exception($$) {
     return @rules;
 }
 
+# Return ('', 'IGNORE') if all dates in [0] are before all dates in [1] (and [2]...)
+# Return ('IGNORE, '') if all dates in [0] after after all dates in [1]
+# The future changes will be set when running the script again later.
 sub try_chronological_change($) {
     my ($ref_dates) = @_;
     my @date_sets = @$ref_dates;
+    return () if $#date_sets != 1;
     my $min;
     my $max;
     my @dates = @{$date_sets[0]};
@@ -224,17 +228,18 @@ sub try_chronological_change($) {
     my $all_before = 1;
     my $all_after = 1;
     for my $i ( 1 .. $#date_sets ) {
-        push @ret_keep_first, 'NEVER';
+        push @ret_keep_first, 'IGNORE';
         my @dates = @{$date_sets[$i]};
         foreach my $date (@dates) {
-            $all_before = 0 if ($date lt $max);
-            $all_after = 0 if ($date gt $min);
+            $all_before = 0 if ($date gt $min);
+            $all_after = 0 if ($date lt $max);
             return () if (!$all_before && !$all_after);
         }
     }
 
+    # Keep the first set if everything else is later.
     return @ret_keep_first if ($all_after);
-    return ('NEVER' , '') if ($all_before && $#date_sets == 1);
+    return ('IGNORE' , '') if ($all_before && $#date_sets == 1);
     return ();
 }
 
@@ -347,7 +352,7 @@ sub try_alternating_weeks($$) {
             # Next year is the general rule, prev year is an override, so it comes second.
             # The '|' is an internal syntax, split up before outputting OSM rules
             if ($openings[$i] eq 'off') {
-                push @ret, "NEVER|$prev_year " . $str[$state_prev_year];
+                push @ret, "IGNORE|$prev_year " . $str[$state_prev_year];
             } else {
                 push @ret, $str[$state] . "|$prev_year " . $str[$state_prev_year];
             }
@@ -521,7 +526,7 @@ sub main() {
             my %rules = %{$times{$day_of_week}};
             my $numrules = %rules;
             foreach my $rule (sort(keys %rules)) {
-                next if $rule eq 'NEVER';
+                next if $rule eq 'IGNORE';
                 my $opening = $rules{$rule};
                 print STDERR "rule '$rule' opening $opening\n" if ($office_id eq $debug_me);
                 my $daynums = $days_for{$rule}{$opening};
@@ -535,7 +540,7 @@ sub main() {
                     } else {
                         my @splitted = split /\|/, $rule;
                         my $main_rule = shift @splitted;
-                        if ($main_rule ne 'NEVER') {
+                        if ($main_rule ne 'IGNORE') {
                             $full_list .= write_rule($main_rule, $daynums, $opening);
                         }
                         # Move any other rule (e.g. 2020) to the end
