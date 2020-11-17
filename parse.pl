@@ -301,7 +301,7 @@ sub try_alternating_weeks($$) {
     my @date_sets = @$ref_dates;
     my @openings = @$ref_openings;
     my %found_odd_even = (); # $Even => 0; $Odd => 0
-    my %found_odd_even_prev_year = (); # $Even => 0; $Odd => 0
+    #my %found_odd_even_prev_year = (); # $Even => 0; $Odd => 0
     my @ret;
 
     # Enum :)
@@ -332,11 +332,12 @@ sub try_alternating_weeks($$) {
                 if ($new_state != $state) {
                     # changed over the year?
                     if ($y != $year) {
-                        return () if $found_odd_even_prev_year{$state};
-                        $found_odd_even_prev_year{$state} = 1;
-                        $state_prev_year = $state;
-                        $year = $y;
-                        $state = $new_state;
+                        last; # Don't look at next year yet, just like in try_chronological_change
+#                         return () if $found_odd_even_prev_year{$state};
+#                         $found_odd_even_prev_year{$state} = 1;
+#                         $state_prev_year = $state;
+#                         $year = $y;
+#                         $state = $new_state;
                     } else {
                         return ();
                     }
@@ -348,7 +349,8 @@ sub try_alternating_weeks($$) {
         return () if $found_odd_even{$state};
         $found_odd_even{$state} = 1;
 
-        if (defined $state_prev_year) {
+        # Disabled, only look at current year
+        if (0 and defined $state_prev_year) {
             # Next year is the general rule, prev year is an override, so it comes second.
             # The '|' is an internal syntax, split up before outputting OSM rules
             if ($openings[$i] eq 'off') {
@@ -357,7 +359,7 @@ sub try_alternating_weeks($$) {
                 push @ret, $str[$state] . "|$prev_year " . $str[$state_prev_year];
             }
         } else {
-            push @ret, $str[$state];
+            push @ret, ($openings[$i] eq 'off') ? "IGNORE" : $str[$state];
         }
     }
 
