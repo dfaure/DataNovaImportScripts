@@ -145,15 +145,21 @@ sub year_for_all($) {
 sub try_year_split($) {
     my ($ref_dates) = @_;
     my @date_sets = @$ref_dates;
+    return () if $#date_sets != 1;
     my @years = ();
+    my %seen_years = ();
     for my $i ( 0 .. $#date_sets ) {
         my @dates = @{$date_sets[$i]};
         my $year = year_for_all(\@dates);
         return () unless defined $year;
+        return () if defined $seen_years{$year};
+        $seen_years{$year} = 1;
+
         state $currentyear = get_year($file_start_date);
         $year = "" if ($year == ($currentyear + 1)); # Assume next year's hours will stay
         push @years, $year;
     }
+    #print STDERR "Year split: " . @date_sets . "\n";
     return @years;
 }
 
@@ -205,42 +211,47 @@ sub try_month_exception($$) {
     return @rules;
 }
 
-# Return ('', 'IGNORE') if all dates in [0] are before all dates in [1] (and [2]...)
-# Return ('IGNORE, '') if all dates in [0] after after all dates in [1]
 # The future changes will be set when running the script again later.
-sub try_chronological_change($) {
-    my ($ref_dates) = @_;
+sub delete_future_changes($$) {
+    my ($ref_dates, $ref_openings) = @_;
     my @date_sets = @$ref_dates;
-    return () if $#date_sets != 1;
-    my $min;
-    my $max;
-    my @dates = @{$date_sets[0]};
-    my @ret_keep_first = ('');
-    foreach my $date (@dates) {
-        if (!defined $max || $max lt $date) {
-            $max = $date;
-        }
-        if (!defined $min || $min gt $date) {
-            $min = $date;
-        }
-    }
+    my @all_openings = @$ref_openings;
 
-    my $all_before = 1;
-    my $all_after = 1;
-    for my $i ( 1 .. $#date_sets ) {
-        push @ret_keep_first, 'IGNORE';
+    # Determine min-max range for each set
+    my @min = ();
+    my @max = ();
+    my $last_index; # which range starts last i.e. the one with the max min :)
+    my $last_min;
+    for my $i ( 0 .. $#date_sets ) {
         my @dates = @{$date_sets[$i]};
         foreach my $date (@dates) {
-            $all_before = 0 if ($date gt $min);
-            $all_after = 0 if ($date lt $max);
-            return () if (!$all_before && !$all_after);
+            if (!defined $max[$i] || $max[$i] lt $date) {
+                $max[$i] = $date;
+            }
+            if (!defined $min[$i] || $min[$i] gt $date) {
+                $min[$i] = $date;
+            }
+        }
+        if (!defined $last_min || $last_min lt $min[$i]) {
+            $last_min = $min[$i];
+            $last_index = $i;
         }
     }
 
-    # Keep the first set if everything else is later.
-    return @ret_keep_first if ($all_after);
-    return ('IGNORE' , '') if ($all_before && $#date_sets == 1);
-    return ();
+    # Check all other sets are before last_min
+    for my $i ( 0 .. $#date_sets ) {
+        next if $i == $last_index;
+        my @dates = @{$date_sets[$i]};
+        foreach my $date (@dates) {
+            return (0, \@date_sets, \@all_openings) if ($date gt $last_min);
+        }
+    }
+
+    # Yes => delete last_index
+    splice(@all_openings, $last_index, 1);
+    splice(@date_sets, $last_index, 1);
+    #print STDERR "REMOVED " . $last_index . "\n";
+    return (1, \@date_sets, \@all_openings);
 }
 
 # Return 1 if all dates in the $1 array are the $2th "weekday" of the month.
@@ -375,39 +386,48 @@ sub try_alternating_weeks($$) {
 # Returns N sets of OSM rules
 sub rules_for_day_of_week($$$) {
     my ($day_of_week, $ref_dates, $ref_openings) = @_;
+
+    my @temp_date_sets = @$ref_dates;
+    #print day_of_week_name($day_of_week) . ": date sets\n"; show_array(@temp_date_sets);
+
+    my @rules;
+    @rules = try_year_split($ref_dates);
+    return (\@rules, $ref_openings) if ($#rules >= 0);
+
+    my $success = 0;
+    while ($#temp_date_sets > 0) {
+        ($success, $ref_dates, $ref_openings) = delete_future_changes($ref_dates, $ref_openings);
+        last if (!$success);
+        @temp_date_sets = @$ref_dates;
+    }
     my @date_sets = @$ref_dates;
+
     my $num_sets = @date_sets;
     if ($num_sets == 1) {
         # Stable opening times -> single rule for that day
-        return ( "" );
+        push @rules, "";
+        return (\@rules, $ref_openings);
     }
-    my @rules;
 
-    #print "Date sets:"; show_array(@date_sets);
     @rules = try_year_split($ref_dates);
-    return @rules if ($#rules >= 0);
+    return (\@rules, $ref_openings) if ($#rules >= 0);
 
     @rules = try_alternating_weeks($ref_dates, $ref_openings);
-    return @rules if ($#rules >= 0);
+    return (\@rules, $ref_openings) if ($#rules >= 0);
 
     for my $which(-1, 1 .. 4) {
         # -1 = last "weekday" of month, 1 = first "weekday" of month...
         @rules = try_same_weekday_of_month($ref_dates, $which);
-        return @rules if ($#rules >= 0);
+        return (\@rules, $ref_openings) if ($#rules >= 0);
     }
 
-    @rules = try_chronological_change($ref_dates);
-    return @rules if ($#rules >= 0);
-
     @rules = try_month_exception($ref_dates, $ref_openings);
-    return @rules if ($#rules >= 0);
-
-    #return "" if ($num_dates >= 7); # Wins by majority
+    return (\@rules, $ref_openings) if ($#rules >= 0);
 
     for my $i (0..$#date_sets) {
         push @rules, "ERROR-" . $i;
     }
-    return @rules;
+    return (\@rules, $ref_openings);
 }
 
 sub write_rule($$$) {
@@ -467,7 +487,7 @@ sub main() {
         $opening = "off" if $opening =~ /^FERME$/ and $day_of_week != 8; # PH hack so it stays separate
         push @{$office_data{$office_id}{$day_of_week}{$opening}}, $date;
     }
-    print STDERR "Parsed $line_nr lines\n";
+    #print STDERR "Parsed $line_nr lines\n";
 
     # Aggregate the different opening hours for Mondays in different rules
     # The empty rule is the default one. But this allows for exceptions.
@@ -479,6 +499,7 @@ sub main() {
         my $office_name = $office_names{$office_id};
         foreach my $day_of_week (sort keys %{$office_data{$office_id}}) {
             my %dayhash = %{$office_data{$office_id}{$day_of_week}};
+            my $dow_name = day_of_week_name($day_of_week); # for debug
             my @all_openings = keys %dayhash;
             my @date_sets = ();
             my @del_indexes = ();
@@ -486,7 +507,7 @@ sub main() {
                 my $opening = $all_openings[$idx];
                 my @dates = sort @{$dayhash{$opening}};
                 my $numdates = @dates;
-                print STDERR "$office_name: " . day_of_week_name($day_of_week) . " $opening $numdates dates: @dates\n" if ($office_id eq $debug_me);
+                print STDERR "$office_name: $dow_name $opening $numdates dates: @dates\n" if ($office_id eq $debug_me);
                 if ($numdates == 1 && $#all_openings > 0) {
                     # ignore single-day-exceptions for now
                     #print "$office_name: ignoring $opening on " . $dates[0] . "\n";
@@ -500,9 +521,11 @@ sub main() {
                 splice(@all_openings, $item, 1);
             }
             #print day_of_week_name($day_of_week) . " date_sets:"; show_array(@date_sets);
-            my @rules = rules_for_day_of_week($day_of_week, \@date_sets, \@all_openings);
+            my ($ref_rules, $ref_openings) = rules_for_day_of_week($day_of_week, \@date_sets, \@all_openings);
+            my @rules = @$ref_rules;
+            @all_openings = @$ref_openings;
             if ($rules[0] eq "ERROR-0") {
-                print STDERR "WARNING: $office_id:$office_name: " . day_of_week_name($day_of_week) . " has multiple outcomes: @all_openings\n";
+                print STDERR "WARNING: $office_id:$office_name: $dow_name has multiple outcomes: @all_openings\n";
                 foreach my $opening (@all_openings) {
                     my @dates = sort @{$dayhash{$opening}};
                     print STDERR "   $opening on @dates\n";
@@ -513,7 +536,7 @@ sub main() {
                 my $rule = $rules[$idx];
                 $office_times{$office_id}{$day_of_week}{$rule} = $opening;
                 $days_for_times{$office_id}{$rule}{$opening} .= $day_of_week;
-                #print "$office_name $day_of_week rule=$rule opening=$opening\n";
+                print STDERR "$office_name: $dow_name idx=$idx rule=$rule opening=$opening\n" if ($office_id eq $debug_me);;
             }
         }
     }
@@ -530,7 +553,7 @@ sub main() {
             foreach my $rule (sort(keys %rules)) {
                 next if $rule eq 'IGNORE';
                 my $opening = $rules{$rule};
-                print STDERR "rule '$rule' opening $opening\n" if ($office_id eq $debug_me);
+                print STDERR day_of_week_name($day_of_week) . " rule '$rule' opening $opening\n" if ($office_id eq $debug_me);
                 my $daynums = $days_for{$rule}{$opening};
                 if (defined $daynums) {
                     if ($rule eq "") {
