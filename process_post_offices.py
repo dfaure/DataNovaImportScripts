@@ -28,9 +28,10 @@ for child in root:
     if child.tag == 'node' or child.tag == 'way':
         ref = child.find("./tag[@k='ref:FR:LaPoste']").get('v')
         old_opening_hours = child.find("./tag[@k='opening_hours']")
+        id = child.get('id')
         changed = False
         if not ref in hours_dict:
-            print("Not in datanova: " + ref)
+            print("Not in datanova: " + ref + ' see https://www.openstreetmap.org/' + child.tag + '/' + id)
         else:
             new_opening_hours = hours_dict[ref]
             if "ERROR" in new_opening_hours:
