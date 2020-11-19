@@ -43,3 +43,7 @@ echo "$adding set because empty in OSM, $missingPH only missing 'PH off', $disag
 
 actions=`grep -w modify $osmfile | wc -l`
 echo "$actions objects modified, use JOSM to import $osmfile"
+
+./filter_changes.py
+
+echo "Check data/selection.osc and run ./upload_selection.sh"
