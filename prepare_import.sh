@@ -29,6 +29,7 @@ osmfile=data/osm_post_offices.osm
 if [ -n "`find $osmfile -mtime 1`" ]; then
     echo "Refetching all post offices via overpass..."
     ./get_all_post_offices.py || exit 1
+    xmllint --format $xmlfile > _xml && mv _xml $xmlfile
 fi
 
 osm_post_offices_count=`grep k=\"ref:FR:LaPoste\" data/osm_post_offices.xml | wc -l`
@@ -41,7 +42,6 @@ log=data/process_post_offices.log
 ./process_post_offices.py > $log || exit 1
 
 echo "Reformatting..."
-xmllint --format $xmlfile > _xml && mv _xml $xmlfile
 xmllint --format $osmfile > _xml && mv _xml $osmfile
 
 diff $xmlfile $osmfile > $osmfile.diff
