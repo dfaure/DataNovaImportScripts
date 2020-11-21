@@ -91,9 +91,20 @@ sub get_day_of_week($) {
     my $dt = fast_parse_datetime($date);
     my $day_of_week = $dt->day_of_week; # 1-7 (Monday is 1)
     # Jours fériés
-    if ($date eq "2020-11-01" || $date eq "2020-11-11" || $date eq "2020-12-25" || $date eq "2021-01-01") {
+    if ($date =~ /-01-01$/ ||
+        $date eq '2021-04-05' || # paques (easter)
+        $date =~ /-05-01$/ ||
+        $date =~ /-05-08$/ ||
+        $date eq '2021-05-13' || # ascension
+        $date eq '2021-05-24' || # pentecote
+        $date =~ /-07-14$/ ||
+        $date =~ /-08-15$/ ||
+        $date =~ /-11-01$/ ||
+        $date =~ /-11-11$/ ||
+        $date =~ /-12-25$/) {
         $day_of_week = 8;
     }
+    die if get_year($date) == 2022; # TODO update list of public holidays above
 
     $cache{$date} = $day_of_week;
 
