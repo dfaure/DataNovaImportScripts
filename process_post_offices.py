@@ -67,7 +67,7 @@ for child in root:
                             old_opening_hours_tag.set('v', new_opening_hours)
                             changed = True
                         else:
-                            print(ref + ": datanova changed from " + saved_opening_hours + " to " + new_opening_hours + " but OSM was modified meanwhile, to " + old_opening_hours + ", skipping")
+                            print(ref + ": datanova changed from " + saved_opening_hours + " to " + new_opening_hours + " but OSM was modified meanwhile, to " + old_opening_hours + ", skipping. See https://osmlab.github.io/osm-deep-history/#/"  + child.tag + '/' + id)
                     else:
                         print(ref + ": OSM says " + old_opening_hours + " datanova says " + new_opening_hours + " leaving untouched for now")
 

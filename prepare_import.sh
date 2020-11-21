@@ -33,6 +33,8 @@ echo "Reformatting..."
 xmllint --format $xmlfile > _xml && mv _xml $xmlfile
 xmllint --format $osmfile > _xml && mv _xml $osmfile
 
+diff $xmlfile $osmfile > $osmfile.diff
+
 adding=`grep 'no opening_hours in OSM' $log | wc -l`
 replacing=`grep ', replacing' $log | wc -l`
 touched=`grep 'modified meanwhile' $log | wc -l`
