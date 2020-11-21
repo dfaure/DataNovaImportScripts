@@ -42,7 +42,7 @@ For each OSM post office with `ref:FR:LaPoste=*` attribute, detect and handle th
 # Setup
 
 ## Lark
-Older lark due to https://github.com/rezemika/humanized\_opening\_hours/issues/34
+Older lark due to https://github.com/rezemika/humanized_opening_hours/issues/34
 
     git clone https://github.com/lark-parser/lark.git
     cd lark ; git checkout 0.6.6
