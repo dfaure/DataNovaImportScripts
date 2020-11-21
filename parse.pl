@@ -123,6 +123,12 @@ sub get_day($) {
    return (shift =~ /^[0-9]{4}-[0-9]+-([0-9]+)$/) ? $1 : undef;
 }
 
+# Return e.g. "2020 Dec 24" for 2020-12-24. Could be done faster.
+sub full_day_name($) {
+    my ($date) = @_;
+    return get_year($date) . ' ' . month_name(get_month($date)) . ' ' . get_day($date);
+}
+
 # Previous month, 1-based.  previous_month(1) == 12
 sub previous_month($) {
     my ($month) = @_;
@@ -187,6 +193,7 @@ sub try_single_day_exception($$) {
     my @openings = @$ref_openings;
     my @rules = ();
     my $date_set_number;
+    my $default_rule_seen = 0;
     for my $i ( 0 .. $#date_sets ) {
         my @dates = @{$date_sets[$i]};
         if (scalar @dates == 1) {
@@ -201,10 +208,16 @@ sub try_single_day_exception($$) {
                 }
             }
             $date_set_number = $i;
-            my $exception_day = $dates[0];
-            push @rules, get_year($exception_day) . ' ' . month_name(get_month($exception_day)) . ' ' . get_day($exception_day);
+            push @rules, full_day_name($dates[0]);
+        } elsif (scalar @dates == 2) {
+            # Only supported once
+            return () if (defined $date_set_number);
+            $date_set_number = $i;
+            push @rules, full_day_name($dates[0]) . ',' . full_day_name($dates[1]);
         } else {
+            return () if $default_rule_seen;
             push @rules, '';
+            $default_rule_seen = 1;
         }
     }
     return defined $date_set_number ? @rules : ();
