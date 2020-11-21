@@ -183,28 +183,25 @@ sub try_year_split($) {
 sub try_single_day_exception($$) {
     my ($ref_dates, $ref_openings) = @_;
     my @date_sets = @$ref_dates;
-    return () if scalar @date_sets != 2;
+    return () if scalar @date_sets < 2 or scalar @date_sets > 3; # only tested with 2 and 3
     my @openings = @$ref_openings;
     my @rules = ();
     my $date_set_number;
-    my $exception_day;
     for my $i ( 0 .. $#date_sets ) {
         my @dates = @{$date_sets[$i]};
         if (scalar @dates == 1) {
             if (defined $date_set_number) {
-                # Urgh, two single day exceptions (can only happen with PH)
-                # Pick the one which is not closed, as exception
+                # Urgh, two single day exceptions
+                # PH: pick the one which is not closed, as exception
                 if ($openings[$i] eq 'FERME') {
                     push @rules, '';
                     next;
                 } elsif ($openings[$date_set_number] eq 'FERME') {
                     $rules[0] = ''; # revert previous rule so the special case is this one
-                } else {
-                    die "Unsupported, please debug ... " . @dates . ' ' . @openings;
                 }
             }
             $date_set_number = $i;
-            $exception_day = $dates[0];
+            my $exception_day = $dates[0];
             push @rules, get_year($exception_day) . ' ' . month_name(get_month($exception_day)) . ' ' . get_day($exception_day);
         } else {
             push @rules, '';
