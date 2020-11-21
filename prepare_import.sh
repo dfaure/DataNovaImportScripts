@@ -17,7 +17,7 @@ if ! ./parse.pl $infile > data/new_opening_hours 2> data/warnings; then
 fi
 ready=`grep -v ERROR data/new_opening_hours | wc -l`
 errors=`grep ERROR data/new_opening_hours | wc -l`
-datanovacount=`wc -l data/new_opening_hours`
+datanovacount=`cat data/new_opening_hours | wc -l`
 statline="datanova: $datanovacount post offices: $ready with resolved rules, $errors with unresolved rules."
 echo "$statline"
 echo "$statline" > data/stats
