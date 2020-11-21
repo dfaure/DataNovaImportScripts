@@ -503,15 +503,17 @@ sub main() {
             my @all_openings = keys %dayhash;
             my @date_sets = ();
             my @del_indexes = ();
+            my $ignored_one = 0;
             for (my $idx = 0; $idx <= $#all_openings; $idx++) {
                 my $opening = $all_openings[$idx];
                 my @dates = sort @{$dayhash{$opening}};
                 my $numdates = @dates;
                 print STDERR "$office_name: $dow_name $opening $numdates dates: @dates\n" if ($office_id eq $debug_me);
-                if ($numdates == 1 && $#all_openings > 0) {
+                if ($numdates == 1 && $#all_openings > 0 && !$ignored_one) {
                     # ignore single-day-exceptions for now
                     #print "$office_name: ignoring $opening on " . $dates[0] . "\n";
                     unshift @del_indexes, $idx; # unshift is push_front, so we reverse the order, for the delete
+                    $ignored_one = 1;
                 } else {
                     push @date_sets, [ @dates ];
                 }
@@ -523,7 +525,12 @@ sub main() {
             #print day_of_week_name($day_of_week) . " date_sets:"; show_array(@date_sets);
             my ($ref_rules, $ref_openings) = rules_for_day_of_week($day_of_week, \@date_sets, \@all_openings);
             my @rules = @$ref_rules;
+            #print STDERR "$office_name: $dow_name " . (scalar @rules) . " rules\n";
             @all_openings = @$ref_openings;
+            if ((scalar @rules) == 0) {
+                print STDERR "ERROR: $office_id:$office_name: $dow_name has no rules at all. @all_openings\n";
+                die; # Adjust when we'll get data sets without any PH
+            }
             if ($rules[0] eq "ERROR-0") {
                 print STDERR "WARNING: $office_id:$office_name: $dow_name has multiple outcomes: @all_openings\n";
                 foreach my $opening (@all_openings) {

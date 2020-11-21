@@ -11,10 +11,16 @@ if [ -n "`find $infile -mtime 6`" ]; then
 fi
 
 echo "Parsing datanova data to deduce opening_hours..."
-./parse.pl $infile > data/new_opening_hours 2> data/warnings || exit 1
+if ! ./parse.pl $infile > data/new_opening_hours 2> data/warnings; then
+    tail -n 1 data/warnings
+    exit 1
+fi
 ready=`grep -v ERROR data/new_opening_hours | wc -l`
 errors=`grep ERROR data/new_opening_hours | wc -l`
-echo "$ready post offices ready for import, $errors post offices with unresolved rules."
+datanovacount=`wc -l data/new_opening_hours`
+statline="datanova: $datanovacount post offices: $ready with resolved rules, $errors with unresolved rules."
+echo "$statline"
+echo "$statline" > data/stats
 echo "(see ../warnings)"
 
 xmlfile=data/osm_post_offices.xml
@@ -24,6 +30,11 @@ if [ -n "`find $osmfile -mtime 1`" ]; then
     echo "Refetching all post offices via overpass..."
     ./get_all_post_offices.py || exit 1
 fi
+
+osm_post_offices_count=`grep k=\"ref:FR:LaPoste\" data/osm_post_offices.xml | wc -l`
+statline="OSM data: $osm_post_offices_count post offices with ref:FR:LaPoste"
+echo "$statline"
+echo "$statline" >> data/stats
 
 echo "Processing XML to insert opening times..."
 log=data/process_post_offices.log
@@ -43,10 +54,13 @@ disagree=`grep OSM\ says $log | wc -l`
 notin=`grep 'Not in datanova' $log | wc -l`
 notready=`grep 'not ready' $log | wc -l`
 missingPH=`grep 'missing PH off' $log | wc -l`
-echo "$adding set because empty in OSM, $replacing set because previously set by me, $missingPH only missing 'PH off', $disagree disagreements (skipped), $agree agreements, $touched skipped because modified by a human, $notin not in datanova (wrong ref?), $notready not ready (parser failed)"
+statline="$adding set because empty in OSM, $replacing set because previously set by me, $missingPH only missing 'PH off', $disagree disagreements (skipped), $agree agreements, $touched skipped because modified by a human, $notin not in datanova (wrong ref?), $notready not ready (parser failed)"
+echo "$statline"
+echo "$statline" >> data/stats
 
 actions=`grep -w modify $osmfile | wc -l`
 echo "$actions objects modified in total"
+echo "$actions objects modified in total" >> data/stats
 
 ./filter_changes.py
 
