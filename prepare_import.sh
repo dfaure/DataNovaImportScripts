@@ -34,15 +34,17 @@ xmllint --format $xmlfile > _xml && mv _xml $xmlfile
 xmllint --format $osmfile > _xml && mv _xml $osmfile
 
 adding=`grep 'no opening_hours in OSM' $log | wc -l`
+replacing=`grep ', replacing' $log | wc -l`
+touched=`grep 'modified meanwhile' $log | wc -l`
 agree=`grep agree $log | wc -l`
 disagree=`grep OSM\ says $log | wc -l`
 notin=`grep 'Not in datanova' $log | wc -l`
 notready=`grep 'not ready' $log | wc -l`
 missingPH=`grep 'missing PH off' $log | wc -l`
-echo "$adding set because empty in OSM, $missingPH only missing 'PH off', $disagree disagreements (added fixme), $agree agreements, $notin not in datanova (wrong ref?), $notready not ready (parser failed)"
+echo "$adding set because empty in OSM, $replacing set because previously set by me, $missingPH only missing 'PH off', $disagree disagreements (skipped), $agree agreements, $touched skipped because modified by a human, $notin not in datanova (wrong ref?), $notready not ready (parser failed)"
 
 actions=`grep -w modify $osmfile | wc -l`
-echo "$actions objects modified, use JOSM to import $osmfile"
+echo "$actions objects modified in total"
 
 ./filter_changes.py
 
