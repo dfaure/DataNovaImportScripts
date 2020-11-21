@@ -482,6 +482,9 @@ sub rules_for_day_of_week($$$) {
 
 sub write_rule($$$) {
     my ($rule, $daynums, $opening) = @_;
+    if ($rule =~ /^[0-9]{4} [a-zA-Z]+ [0-9]{2}/) { # rule with a specific date, don't output the weekday
+        return "$rule $opening; ";
+    }
     my $str = "";
     $str = "$rule " if ($rule !~ /^\[/); # year or week number
     $str .= abbrevs($daynums);
