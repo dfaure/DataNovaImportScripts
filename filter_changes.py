@@ -23,6 +23,8 @@ osc_out = 'data/selection.osc'
 hours_file = open(hours_out, 'w')
 
 def keep(child):
+    if child.get('action') != 'modify':
+        return False
     ref = child.find("./tag[@k='ref:FR:LaPoste']").get('v')
     return ref == '15854A'
 
