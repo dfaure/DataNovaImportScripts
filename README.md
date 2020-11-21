@@ -5,15 +5,15 @@ See https://wiki.openstreetmap.org/wiki/Import/FrenchPostOfficeOpeningHours
 
 # Workflow
 
-The script `prepare\_import.sh` runs all of the automated steps below:
+The script `prepare_import.sh` runs all of the automated steps below:
 
 * It downloads the large CSV file from datanova with all opening hours
 * It runs `parse.pl` to reverse-engineer and save locally the opening\_hours rule for each post office (into `data/new_opening_hours`)
-* It runs `get\_all\_post\_offices.py` which fetches all post offices that have a `ref:FR:LaPoste ID`, into an XML file (`data/osm_post_offices.xml`)
-* It runs `process\_post\_offices.py` which reads that XML, detects `ref:FR:LaPoste=*`, adds `opening\_hours=*` (based on the locally saved rules) and add action='modify' to the object, and saves the XML file as `data/osm_post_offices.osm`
+* It runs `get_all_post_offices.py` which fetches all post offices that have a `ref:FR:LaPoste ID`, into an XML file (`data/osm_post_offices.xml`)
+* It runs `process_post_offices.py` which reads that XML, detects `ref:FR:LaPoste=*`, adds `opening_hours=*` (based on the locally saved rules) and add action='modify' to the object, and saves the XML file as `data/osm_post_offices.osm`
 * It runs `filter_changes.py` to filter or split the changes, geographically, and this runs `../osm-bulk-upload/osm2change.py` to create the corresponding changeset files
 
-Finally the user can check that everything looks good, and run `upload\_selection.sh` to perform the upload.
+Finally the user can check that everything looks good, and run `upload_selection.sh` to perform the upload.
 
 After the upload, the user should commit the new `saved_opening_hours` file, which lists the changes performed by this import, in order to detect changes made externally since the last import for a given post office.
 
@@ -42,16 +42,18 @@ For each OSM post office with `ref:FR:LaPoste=*` attribute, detect and handle th
 # Setup
 
 ## Lark
-\# Older lark due to https://github.com/rezemika/humanized\_opening\_hours/issues/34
+Older lark due to https://github.com/rezemika/humanized\_opening\_hours/issues/34
+
     git clone https://github.com/lark-parser/lark.git
     cd lark ; git checkout 0.6.6
     python3 ./setup.py install --prefix /home/dfaure/.local
 
 ## osm-bulk-upload
-\# Do this in the parent directory of this checkout
+Do this in the parent directory of this checkout
+
     git clone https://github.com/grigory-rechistov/osm-bulk-upload
 
 ## Other dependencies
     pip install overpass
-    pip install oh\_sanitizer
+    pip install oh_sanitizer
 
