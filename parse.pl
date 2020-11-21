@@ -7,7 +7,7 @@ use DateTime::Format::ISO8601;
 use v5.14;     # using the + prototype for show_array, new to v5.14
 use POSIX qw(strftime);
 
-my $debug_me = 'NONE'; # TODO pass on command line?
+my $debug_me = defined $ENV{'DEBUGREF'} ? $ENV{'DEBUGREF'} : 'NONE';
 my $file_start_date; # get it from the input file so that time passing doesn't break unittests
 
 sub panic($) {
