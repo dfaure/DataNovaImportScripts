@@ -119,6 +119,10 @@ sub get_month($) {
    return (shift =~ /^[0-9]{4}-([0-9]+)-/) ? $1 : undef;
 }
 
+sub get_day($) {
+   return (shift =~ /^[0-9]{4}-[0-9]+-([0-9]+)$/) ? $1 : undef;
+}
+
 # Previous month, 1-based.  previous_month(1) == 12
 sub previous_month($) {
     my ($month) = @_;
@@ -140,8 +144,8 @@ sub get_week_number($) {
 sub year_for_all($) {
     my $ref_dates = shift;
     my @dates = @$ref_dates;
-    return undef if $#dates < 2; # Not enough
-    #print "Dates:"; show_array(@dates);
+    return undef if scalar @dates < 3; # Not enough
+    #print "Dates:\n"; show_array(@dates);
     my $year = get_year($dates[0]);
     foreach my $date (@dates) {
         my $y = get_year($date);
@@ -156,7 +160,7 @@ sub year_for_all($) {
 sub try_year_split($) {
     my ($ref_dates) = @_;
     my @date_sets = @$ref_dates;
-    return () if $#date_sets != 1;
+    return () if scalar @date_sets != 2;
     my @years = ();
     my %seen_years = ();
     for my $i ( 0 .. $#date_sets ) {
@@ -174,11 +178,46 @@ sub try_year_split($) {
     return @years;
 }
 
+# If the input array has a single day in one date_set, and everything in the other
+# then return a rule for that single day, and "" for the other set.
+sub try_single_day_exception($$) {
+    my ($ref_dates, $ref_openings) = @_;
+    my @date_sets = @$ref_dates;
+    return () if scalar @date_sets != 2;
+    my @openings = @$ref_openings;
+    my @rules = ();
+    my $date_set_number;
+    my $exception_day;
+    for my $i ( 0 .. $#date_sets ) {
+        my @dates = @{$date_sets[$i]};
+        if (scalar @dates == 1) {
+            if (defined $date_set_number) {
+                # Urgh, two single day exceptions (can only happen with PH)
+                # Pick the one which is not closed, as exception
+                if ($openings[$i] eq 'FERME') {
+                    push @rules, '';
+                    next;
+                } elsif ($openings[$date_set_number] eq 'FERME') {
+                    $rules[0] = ''; # revert previous rule so the special case is this one
+                } else {
+                    die "Unsupported, please debug ... " . @dates . ' ' . @openings;
+                }
+            }
+            $date_set_number = $i;
+            $exception_day = $dates[0];
+            push @rules, get_year($exception_day) . ' ' . month_name(get_month($exception_day)) . ' ' . get_day($exception_day);
+        } else {
+            push @rules, '';
+        }
+    }
+    return defined $date_set_number ? @rules : ();
+}
+
 sub month_for_all($) {
     my $ref_dates = shift;
     my @dates = @$ref_dates;
-    return undef if $#dates < 2; # Not enough
-    #print "Dates:"; show_array(@dates);
+    return undef if scalar @dates < 3; # Not enough
+    #print "Dates:\n"; show_array(@dates);
     my $month = get_month($dates[0]);
     foreach my $date (@dates) {
         my $m = get_month($date);
@@ -193,7 +232,7 @@ sub month_for_all($) {
 sub try_month_exception($$) {
     my ($ref_dates, $ref_openings) = @_;
     my @date_sets = @$ref_dates;
-    return () if $#date_sets != 1;
+    return () if scalar @date_sets != 2;
     my @openings = @$ref_openings;
     my @rules = ();
     my $date_set_number;
@@ -227,9 +266,10 @@ sub delete_future_changes($$) {
     my ($ref_dates, $ref_openings) = @_;
     my @date_sets = @$ref_dates;
     my @all_openings = @$ref_openings;
+    my @abort = (0, \@date_sets, \@all_openings);
 
     # Determine min-max range for each set
-    my @min = ();
+    my @min = (); # TODO REMOVE, SIMPLIFY
     my @max = ();
     my $last_index; # which range starts last i.e. the one with the max min :)
     my $last_min;
@@ -253,8 +293,9 @@ sub delete_future_changes($$) {
     for my $i ( 0 .. $#date_sets ) {
         next if $i == $last_index;
         my @dates = @{$date_sets[$i]};
+        return @abort if (scalar @dates <= 1); # One isn't enough for a rule
         foreach my $date (@dates) {
-            return (0, \@date_sets, \@all_openings) if ($date gt $last_min);
+            return @abort if ($date gt $last_min);
         }
     }
 
@@ -271,7 +312,7 @@ sub delete_future_changes($$) {
 sub same_weekday_of_month_for_all($$) {
     my ($ref_dates, $which) = @_;
     my @dates = @$ref_dates;
-    return 0 if $#dates < 2; # Not enough
+    return 0 if scalar @dates < 3; # Not enough
     state $file_dt = fast_parse_datetime($file_start_date);
     my $current_month;
     if ($which == -1) {
@@ -403,37 +444,38 @@ sub rules_for_day_of_week($$$) {
 
     my @rules;
     @rules = try_year_split($ref_dates);
-    return (\@rules, $ref_openings) if ($#rules >= 0);
+    return (\@rules, $ref_openings) if (scalar @rules >= 1);
 
     my $success = 0;
-    while ($#temp_date_sets > 0) {
+    while (scalar @temp_date_sets > 1) {
         ($success, $ref_dates, $ref_openings) = delete_future_changes($ref_dates, $ref_openings);
         last if (!$success);
         @temp_date_sets = @$ref_dates;
     }
     my @date_sets = @$ref_dates;
-
-    my $num_sets = @date_sets;
-    if ($num_sets == 1) {
+    if (scalar @date_sets == 1) {
         # Stable opening times -> single rule for that day
         push @rules, "";
         return (\@rules, $ref_openings);
     }
 
+    @rules = try_single_day_exception($ref_dates, $ref_openings);
+    return (\@rules, $ref_openings) if (scalar @rules >= 1);
+
     @rules = try_year_split($ref_dates);
-    return (\@rules, $ref_openings) if ($#rules >= 0);
+    return (\@rules, $ref_openings) if (scalar @rules >= 1);
 
     @rules = try_alternating_weeks($ref_dates, $ref_openings);
-    return (\@rules, $ref_openings) if ($#rules >= 0);
+    return (\@rules, $ref_openings) if (scalar @rules >= 1);
 
     for my $which(-1, 1 .. 4) {
         # -1 = last "weekday" of month, 1 = first "weekday" of month...
         @rules = try_same_weekday_of_month($ref_dates, $which);
-        return (\@rules, $ref_openings) if ($#rules >= 0);
+        return (\@rules, $ref_openings) if (scalar @rules >= 1);
     }
 
     @rules = try_month_exception($ref_dates, $ref_openings);
-    return (\@rules, $ref_openings) if ($#rules >= 0);
+    return (\@rules, $ref_openings) if (scalar @rules >= 1);
 
     for my $i (0..$#date_sets) {
         push @rules, "ERROR-" . $i;
@@ -513,27 +555,18 @@ sub main() {
             my $dow_name = day_of_week_name($day_of_week); # for debug
             my @all_openings = keys %dayhash;
             my @date_sets = ();
-            my @del_indexes = ();
-            my $ignored_one = 0;
             for (my $idx = 0; $idx <= $#all_openings; $idx++) {
                 my $opening = $all_openings[$idx];
                 my @dates = sort @{$dayhash{$opening}};
-                my $numdates = @dates;
-                print STDERR "$office_name: $dow_name $opening $numdates dates: @dates\n" if ($office_id eq $debug_me);
-                if ($numdates == 1 && $#all_openings > 0 && !$ignored_one) {
-                    # ignore single-day-exceptions for now
-                    #print "$office_name: ignoring $opening on " . $dates[0] . "\n";
-                    unshift @del_indexes, $idx; # unshift is push_front, so we reverse the order, for the delete
-                    $ignored_one = 1;
-                } else {
-                    push @date_sets, [ @dates ];
+                push @date_sets, [ @dates ];
+            }
+            if ($office_id eq $debug_me) {
+                print STDERR "$office_name: $dow_name date_sets:\n";
+                foreach my $opening (@all_openings) {
+                    my @dates = sort @{$dayhash{$opening}};
+                    print STDERR "   $opening on @dates\n";
                 }
             }
-            # Delete ignored cases
-            foreach my $item (@del_indexes) {
-                splice(@all_openings, $item, 1);
-            }
-            #print day_of_week_name($day_of_week) . " date_sets:"; show_array(@date_sets);
             my ($ref_rules, $ref_openings) = rules_for_day_of_week($day_of_week, \@date_sets, \@all_openings);
             my @rules = @$ref_rules;
             #print STDERR "$office_name: $dow_name " . (scalar @rules) . " rules\n";
