@@ -29,6 +29,7 @@ osmfile=data/osm_post_offices.osm
 
 if [ -n "`find $osmfile -mtime 1`" ]; then
     echo "Refetching all post offices via overpass..."
+    mv -f $xmlfile $xmlfile.orig
     ./get_all_post_offices.py || exit 1
     xmllint --format $xmlfile > _xml && mv _xml $xmlfile
 fi
