@@ -1,7 +1,8 @@
 #!/bin/bash
 
 infile=data/laposte_ouvertur.csv
-if [ -n "`find $infile -mtime 6`" ]; then
+if [ ! -f "$infile" -o -n "`find $infile -mtime 6`" ]; then
+    mkdir -p data
     echo "Refetching datanova data..."
     if [ -f $infile ]; then
         mv -f $infile $infile.bak
@@ -62,6 +63,7 @@ actions=`grep -w modify $osmfile | wc -l`
 echo "$actions objects modified in total"
 echo "$actions objects modified in total" >> data/stats
 
+mkdir -p changes
 ./filter_changes.py
 
 echo "Check data/selection.osc and run ./upload_selection.sh"

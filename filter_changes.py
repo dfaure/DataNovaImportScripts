@@ -1,63 +1,76 @@
 #!/usr/bin/env python3
 import os
 import subprocess
-# https://docs.python.org/3/library/xml.etree.elementtree.html#module-xml.etree.ElementTree
+import shutil
+import copy
 import xml.etree.ElementTree as ET
 
-# open the full output from process_post_offices.py
-xmlfile = open("data/osm_post_offices.osm", "r")
-response = xmlfile.read()
-
-# parse office id -> office name dict, to keep .hours files readable
+# Parse office id -> office name dict, to keep .hours files readable
 office_names = {}
 with open('data/new_opening_hours') as f:
     for line in f.readlines():
         data = [item.strip() for item in line.split('|')]
         office_names[data[0]] = data[1]
 
-# write out these files
-hours_out = 'data/selection.hours'
-osm_out = 'data/selection.osm'
-osc_out = 'data/selection.osc'
+# Prepare output dir
+if os.path.exists('changes'):
+    shutil.rmtree('changes')
+os.mkdir('changes')
 
-hours_file = open(hours_out, 'w')
+class CurrentOutput:
+    file_counter = 0           # C++ static
+    object_counter = 0         # C++ static
+    def __init__(self, root):
+        self.hours_out = 'changes/' + str(CurrentOutput.file_counter) + '.hours'
+        self.osm_out = 'changes/' + str(CurrentOutput.file_counter) + '.osm'
+        self.hours_file = open(self.hours_out, 'w')
+        self.xmlroot = ET.Element(root.tag)
+        self.xmlroot.attrib = copy.deepcopy(root.attrib)
+        self.count = 0
 
-def keep(child):
-    if child.get('action') != 'modify':
-        return False
-    ref = child.find("./tag[@k='ref:FR:LaPoste']").get('v')
-    return ref == '15854A'
+    def write_and_close(self):
+        self.hours_file.close()
+        if self.count > 0:
+            CurrentOutput.object_counter += self.count
+            ET.ElementTree(self.xmlroot).write(self.osm_out, 'unicode', True)
+            # Create the corresponding ".osc" file
+            subprocess.call(["python3", "../osm-bulk-upload/osm2change.py", self.osm_out])
+            CurrentOutput.file_counter += 1
 
-# keep a selection
-root = ET.fromstring(response)
-tree = ET.ElementTree(root)
-count = 0
-for child in list(root):
-    if child.tag == 'node' or child.tag == 'way':
-        if not keep(child):
-            root.remove(child)
-            continue
-        count += 1
+    def keep(self, child):
+        if child.get('action') != 'modify':
+            return False
+        #ref = child.find("./tag[@k='ref:FR:LaPoste']").get('v')
+        #return ref == '15854A'
+        return True
+
+    def add(self, child):
+        # https://stackoverflow.com/questions/15527399/python-elementtree-inserting-a-copy-of-an-element
+        self.xmlroot.append(ET.ElementTree(child).getroot())
         ref = child.find("./tag[@k='ref:FR:LaPoste']").get('v')
         opening_hours = child.find("./tag[@k='opening_hours']").get('v')
         office_name = ''
         if ref in office_names:
             office_name = office_names[ref]
-        hours_file.write(ref + "|" + office_name + "|" + opening_hours + "\n")
-    elif child.tag == 'relation':
-        root.remove(child)
+        self.hours_file.write(ref + "|" + office_name + "|" + opening_hours + "\n")
+        self.count += 1
 
-if count == 0:
+# open the full output from process_post_offices.py
+tree = ET.parse('data/osm_post_offices.osm')
+root = tree.getroot()
+
+current_out = CurrentOutput(root)
+
+for child in root:
+    if child.tag == 'node' or child.tag == 'way':
+        if current_out.keep(child):
+            current_out.add(child)
+            if current_out.count >= 1000:
+                current_out.write_and_close()
+                current_out = CurrentOutput(root)
+current_out.write_and_close()
+
+if CurrentOutput.file_counter == 0:
     print("nothing to upload")
-    if os.path.exists(osm_out):
-        os.remove(osm_out)
-    if os.path.exists(osc_out):
-        os.remove(osc_out)
 else:
-    print(str(count) + " change(s) to upload")
-    tree.write(osm_out, 'unicode', True)
-    # Create data/selection.osc
-    subprocess.call(["python3", "../osm-bulk-upload/osm2change.py", osm_out])
-
-hours_file.close()
-
+    print(str(CurrentOutput.file_counter) + " file(s) created, to upload changes to " + str(CurrentOutput.object_counter) + " object(s)")
