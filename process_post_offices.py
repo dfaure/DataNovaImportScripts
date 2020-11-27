@@ -42,7 +42,6 @@ tree = ET.ElementTree(root)
 for child in root:
     if child.tag == 'node' or child.tag == 'way':
         ref = child.find("./tag[@k='ref:FR:LaPoste']").get('v')
-        old_opening_hours_tag = child.find("./tag[@k='opening_hours']")
         id = child.get('id')
         changed = False
         if not ref in hours_dict:
@@ -52,6 +51,7 @@ for child in root:
             if "ERROR" in new_opening_hours:
                 print(ref + ": in datanova but not ready (parser failed): " + new_opening_hours)
             else:
+                old_opening_hours_tag = child.find("./tag[@k='opening_hours']")
                 if not old_opening_hours_tag is None:
                     old_opening_hours = old_opening_hours_tag.get('v')
                     if old_opening_hours + "; PH off" == new_opening_hours:
@@ -88,11 +88,19 @@ for child in root:
                         #    suggestion_tag.set('v', new_opening_hours)
                         #changed = True
                 else:
-                    print(ref + ": no opening_hours in OSM, adding")
-                    opening_hours_tag = ET.SubElement(child, 'tag')
-                    opening_hours_tag.set('k', 'opening_hours')
-                    opening_hours_tag.set('v', new_opening_hours)
-                    changed = True
+                    old_opening_hours_covid_tag = child.find("./tag[@k='opening_hours:covid19']")
+                    if not old_opening_hours_covid_tag is None and old_opening_hours_covid_tag.get('v') != "open":
+                        old_opening_hours_covid = old_opening_hours_covid_tag.get('v')
+                        if old_opening_hours_covid == new_opening_hours:
+                            print(ref + ": no opening_hours but covid hours match: " + old_opening_hours_covid)
+                        else:
+                            print(ref + ": no opening_hours but covid hours: " + old_opening_hours_covid + ', datanova: ' + new_opening_hours)
+                    else:
+                        print(ref + ": no opening_hours in OSM, adding")
+                        opening_hours_tag = ET.SubElement(child, 'tag')
+                        opening_hours_tag.set('k', 'opening_hours')
+                        opening_hours_tag.set('v', new_opening_hours)
+                        changed = True
         if changed:
             child.set('action', 'modify')
 
