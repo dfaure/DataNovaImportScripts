@@ -1,5 +1,9 @@
 #!/bin/bash
 
+if [ "$1" = "-updateosm" ]; then
+    updateosm=1
+fi
+
 infile=data/laposte_ouvertur.csv
 if [ ! -f "$infile" -o -n "`find $infile -mtime 6  2>/dev/null`" ]; then
     mkdir -p data
@@ -10,6 +14,10 @@ if [ ! -f "$infile" -o -n "`find $infile -mtime 6  2>/dev/null`" ]; then
     fi
     # 137MB download
     wget 'https://datanova.laposte.fr/explore/dataset/laposte_ouvertur/download/?format=csv&timezone=Europe/Berlin&lang=fr&use_labels_for_header=true&csv_separator=%3B' -O $infile
+fi
+
+if [ -f data/new_opening_hours ]; then
+    mv data/new_opening_hours data/new_opening_hours.orig
 fi
 
 echo "Parsing datanova data to deduce opening_hours..."
@@ -28,7 +36,7 @@ echo "(see ../warnings)"
 xmlfile=data/osm_post_offices.xml
 osmfile=data/osm_post_offices.osm
 
-if [ ! -f $xmlfile -o -n "`find $xmlfile -mtime 1 2>/dev/null`" ]; then
+if [ -n "$updateosm" -o ! -f $xmlfile -o -n "`find $xmlfile -mtime 1 2>/dev/null`" ]; then
     echo "Refetching all post offices via overpass..."
     if [ -f $xmlfile ]; then
         mv -f $xmlfile $xmlfile.orig
@@ -44,6 +52,9 @@ echo "$statline" >> data/stats
 
 echo "Processing XML to insert opening times..."
 log=data/process_post_offices.log
+if [ -f $log ]; then
+    mv $log $log.orig
+fi
 ./process_post_offices.py > $log || exit 1
 
 echo "Reformatting..."
