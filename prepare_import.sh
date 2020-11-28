@@ -1,7 +1,7 @@
 #!/bin/bash
 
 infile=data/laposte_ouvertur.csv
-if [ ! -f "$infile" -o -n "`find $infile -mtime 6`" ]; then
+if [ ! -f "$infile" -o -n "`find $infile -mtime 6  2>/dev/null`" ]; then
     mkdir -p data
     echo "Need to refetch the datanova data... OK?"
     read confirmation
@@ -28,9 +28,11 @@ echo "(see ../warnings)"
 xmlfile=data/osm_post_offices.xml
 osmfile=data/osm_post_offices.osm
 
-if [ -n "`find $osmfile -mtime 1`" ]; then
+if [ ! -f $xmlfile -o -n "`find $xmlfile -mtime 1 2>/dev/null`" ]; then
     echo "Refetching all post offices via overpass..."
-    mv -f $xmlfile $xmlfile.orig
+    if [ -f $xmlfile ]; then
+        mv -f $xmlfile $xmlfile.orig
+    fi
     ./get_all_post_offices.py || exit 1
     xmllint --format $xmlfile > _xml && mv _xml $xmlfile
 fi
