@@ -57,6 +57,7 @@ for child in root:
                     if old_opening_hours + "; PH off" == new_opening_hours:
                         print(ref + ": missing PH off, adding")
                         old_opening_hours_tag.set('v', new_opening_hours)
+                        child.set('X-reason', 'ph_off_') # for filter_changes.py
                         changed = True
                     elif old_opening_hours == new_opening_hours:
                         print(ref + ": agree")

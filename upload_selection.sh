@@ -3,15 +3,24 @@ password=`pass show osmbot-openstreetmap.org | head -n 1`
 date=`date +%Y-%m-%d`
 version=`cat ./version`
 
-changeset=data/selection.osc
+changeset="$1"
+comment="Import des opening_hours sur les bureaux de poste n'en ayant pas"
+case $changeset in
+    */ph_off_*)
+        comment="Import des opening_hours: PH off manquant"
+        ;;
+esac
 
-../osm-bulk-upload/upload.py -u davidfaure_bot -p $password -c yes -m 'Set opening hours, see https://wiki.openstreetmap.org/wiki/Import/FrenchPostOfficeOpeningHours' $changeset -x "DataNovaImportScripts $version" -y "datanova.laposte.fr, $date"
+url="https://wiki.openstreetmap.org/wiki/Import/FrenchPostOfficeOpeningHours"
+
+# Note that these two tags were hacked directly into upload.py:
+# import=yes
+../osm-bulk-upload/upload.py -u davidfaure_bot -p $password -c yes -m "$comment" $changeset \
+  -x "DataNovaImportScripts $version, via osm-bulk-upload/python.py" -y "datanova.laposte.fr, $date" -z "$url"
 exitcode=$?
 
-# I only modify, no creation, so I don't need the id mapping
-rm -f data/selection.diff.xml
-
-if [ $? -eq 0 ]; then
+if [ $exitcode -eq 0 ]; then
     # Success
-    ./commit_changes_locally.py
+    hoursfile=`echo $changeset | sed -e 's/osc/hours/'`
+    ./commit_changes_locally.py $hoursfile
 fi

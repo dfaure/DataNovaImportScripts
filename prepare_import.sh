@@ -3,7 +3,8 @@
 infile=data/laposte_ouvertur.csv
 if [ ! -f "$infile" -o -n "`find $infile -mtime 6`" ]; then
     mkdir -p data
-    echo "Refetching datanova data..."
+    echo "Need to refetch the datanova data... OK?"
+    read confirmation
     if [ -f $infile ]; then
         mv -f $infile $infile.bak
     fi

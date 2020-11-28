@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
 import os
+import sys
 
-# Newly uploaded (TODO pass as parameter)
-hours_file = 'data/selection.hours'
+if len(sys.argv) < 2:
+    sys.stderr.write("Synopsis:\n")
+    sys.stderr.write("    %s <file-name.hours> [<file-name.hours>...]\n" % (sys.argv[0],))
+    sys.exit(1)
+
+filenames = []
+for arg in sys.argv[1:]:
+    # There's room for adding support for options here
+    filenames.append(arg)
 
 # parse office id -> office name dict, to keep .hours files readable
 office_names = {}
@@ -22,14 +30,15 @@ with open(local_db) as f:
             print("ERROR: invalid line " + line)
         else:
             hours_dict[data[0]] = data[2]
-            print("DB " + data[0])
+            #print("DB " + data[0])
 
 # Merge the newly uploaded files into the DB
-with open(hours_file) as f:
-    for line in f.readlines():
-        data = [item.strip() for item in line.split('|')]
-        hours_dict[data[0]] = data[2]
-        print(hours_file + " " + data[0])
+for hours_file in filenames:
+    with open(hours_file) as f:
+        for line in f.readlines():
+            data = [item.strip() for item in line.split('|')]
+            hours_dict[data[0]] = data[2]
+            #print(hours_file + " " + data[0])
 
 # Save back the DB
 with open(local_db, "w") as f:
