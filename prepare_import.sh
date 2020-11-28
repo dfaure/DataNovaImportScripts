@@ -68,4 +68,5 @@ echo "$actions objects modified in total" >> data/stats
 mkdir -p changes
 ./filter_changes.py
 
-echo "Check data/selection.osc and run ./upload_selection.sh"
+echo 'Check changes/*.osc and run ./upload_selection.sh'
+
