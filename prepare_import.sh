@@ -70,7 +70,8 @@ disagree=`grep OSM\ says $log | wc -l`
 notin=`grep 'Not in datanova' $log | wc -l`
 notready=`grep 'not ready' $log | wc -l`
 missingPH=`grep 'missing PH off' $log | wc -l`
-statline="$adding set because empty in OSM, $replacing to be updated, $missingPH only missing 'PH off', $disagree disagreements (skipped), $agree agreements, $touched skipped because modified by a human, $notin not in datanova (wrong ref?), $notready not ready (unresolved rules)"
+duperef=`grep 'duplicate ref' $log | wc -l`
+statline="$adding set because empty in OSM, $replacing to be updated, $missingPH only missing 'PH off', $disagree disagreements (skipped), $agree agreements, $touched skipped because modified by a human, $notin not in datanova (wrong ref?), $duperef duplicate refs in OSM, $notready not ready (unresolved rules)"
 echo "$statline"
 echo "$statline" >> data/stats
 

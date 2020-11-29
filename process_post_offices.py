@@ -39,11 +39,15 @@ with open('saved_opening_hours') as f:
 # parse XML
 root = ET.fromstring(response)
 tree = ET.ElementTree(root)
+seen_refs = {}
 for child in root:
     if child.tag == 'node' or child.tag == 'way':
         ref = child.find("./tag[@k='ref:FR:LaPoste']").get('v')
         id = child.get('id')
         changed = False
+        if ref in seen_refs:
+            print("OSM error: duplicate ref " + ref + ' used in https://www.openstreetmap.org/' + seen_refs[ref] + ' and https://www.openstreetmap.org/' + child.tag + '/' + id + ' - check with https://www.laposte.fr/particulier/outils/trouver-un-bureau-de-poste/bureau-detail/' + ref + '/' + ref)
+        seen_refs[ref] = child.tag + '/' + id
         if not ref in hours_dict:
             print("Not in datanova: " + ref + ' see https://www.openstreetmap.org/' + child.tag + '/' + id)
         else:
@@ -67,6 +71,8 @@ for child in root:
                             print(ref + ": datanova changed from " + saved_opening_hours + " to " + new_opening_hours + " and OSM was untouched meanwhile, replacing")
                             old_opening_hours_tag.set('v', new_opening_hours)
                             changed = True
+                        elif saved_opening_hours == new_opening_hours:
+                            print(ref + ": no change in datanova, still " + saved_opening_hours + " but OSM was modified meanwhile, to " + old_opening_hours + ", skipping. See https://osmlab.github.io/osm-deep-history/#/"  + child.tag + '/' + id)
                         else:
                             print(ref + ": datanova changed from " + saved_opening_hours + " to " + new_opening_hours + " but OSM was modified meanwhile, to " + old_opening_hours + ", skipping. See https://osmlab.github.io/osm-deep-history/#/"  + child.tag + '/' + id)
                     else:
