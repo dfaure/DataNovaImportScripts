@@ -5,7 +5,7 @@ if [ "$1" = "-updateosm" ]; then
 fi
 
 infile=data/laposte_ouvertur.csv
-if [ ! -f "$infile" -o -n "`find $infile -mtime 6  2>/dev/null`" ]; then
+if [ ! -f "$infile" -o -n "`find $infile -mtime +6  2>/dev/null`" ]; then
     mkdir -p data
     echo "Need to refetch the datanova data... OK?"
     read confirmation
@@ -36,7 +36,7 @@ echo "(see ../warnings)"
 xmlfile=data/osm_post_offices.xml
 osmfile=data/osm_post_offices.osm
 
-if [ -n "$updateosm" -o ! -f $xmlfile -o -n "`find $xmlfile -mtime 1 2>/dev/null`" ]; then
+if [ -n "$updateosm" -o ! -f $xmlfile -o -n "`find $xmlfile -mtime +1 2>/dev/null`" ]; then
     echo "Refetching all post offices via overpass..."
     if [ -f $xmlfile ]; then
         mv -f $xmlfile $xmlfile.orig

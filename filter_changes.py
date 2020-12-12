@@ -93,8 +93,6 @@ for child in root:
         reason = child.get('X-reason', '') # set by process_post_offices.py
         if reason != '':
             child.attrib.pop('X-reason')
-        #else: # HACK HACK
-        #    continue ### HACK HACK HACK HACK
         if not reason in current_out_dict:
             current_out_dict[reason] = CurrentOutput(root, reason)
         current_out = current_out_dict[reason]

@@ -31,10 +31,11 @@ with open('saved_opening_hours') as f:
         if len(data) < 3:
             print("ERROR: invalid line " + line)
         else:
-            saved_hours_dict[data[0]] = data[2]
-            saved_office_names[data[0]] = data[1]
-            if office_names[data[0]] != saved_office_names[data[0]]:
-                print("NOTE: " + data[0] + " was " + saved_office_names[data[0]] + " but now it's " + office_names[data[0]])
+            id = data[0]
+            saved_hours_dict[id] = data[2]
+            saved_office_names[id] = data[1]
+            if id in office_names and office_names[id] != saved_office_names[id]:
+                print("NOTE: " + id + " was " + saved_office_names[id] + " but now it's " + office_names[id])
 
 # parse XML
 root = ET.fromstring(response)
@@ -70,6 +71,7 @@ for child in root:
                         if old_opening_hours == saved_opening_hours:
                             print(ref + ": datanova changed from " + saved_opening_hours + " to " + new_opening_hours + " and OSM was untouched meanwhile, replacing")
                             old_opening_hours_tag.set('v', new_opening_hours)
+                            child.set('X-reason', 'update_') # for filter_changes.py
                             changed = True
                         elif saved_opening_hours == new_opening_hours:
                             print(ref + ": no change in datanova, still " + saved_opening_hours + " but OSM was modified meanwhile, to " + old_opening_hours + ", skipping. See https://osmlab.github.io/osm-deep-history/#/"  + child.tag + '/' + id)
