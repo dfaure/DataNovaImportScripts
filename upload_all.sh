@@ -26,6 +26,6 @@ for changeset in changes/*.osc; do
     if [ $exitcode -eq 0 ]; then
         # Success
         hoursfile=`echo $changeset | sed -e 's/osc/hours/'`
-        ./commit_changes_locally.py $hoursfile
+        ./commit_changes_locally.py $hoursfile || exit 1
     fi
 done

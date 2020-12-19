@@ -29,8 +29,11 @@ with open(local_db) as f:
         if len(data) < 3:
             print("ERROR: invalid line " + line)
         else:
-            hours_dict[data[0]] = data[2]
-            #print("DB " + data[0])
+            id = data[0]
+            hours_dict[id] = data[2]
+            if id not in office_names:
+                office_names[id] = data[1]
+            #print("DB " + id)
 
 # Merge the newly uploaded files into the DB
 for hours_file in filenames:
