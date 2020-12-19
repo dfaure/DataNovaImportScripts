@@ -31,7 +31,7 @@ ready=`grep -v ERROR data/new_opening_hours | wc -l`
 errors=`grep ERROR data/new_opening_hours | wc -l`
 datanovacount=`cat data/new_opening_hours | wc -l`
 statline="datanova: $datanovacount post offices: $ready with resolved rules, $errors with unresolved rules."
-stats=data/stats$date
+stats=data/stats_$date
 echo "$statline"
 echo "$statline" > $stats
 echo "(see ../warnings)"
@@ -54,7 +54,7 @@ echo "$statline"
 echo "$statline" >> $stats
 
 echo "Processing XML to insert opening times..."
-log=data/process_post_offices$date.log
+log=data/process_post_offices_$date.log
 if [ -f $log ]; then
     mv $log $log.orig
 fi
