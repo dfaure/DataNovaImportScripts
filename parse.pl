@@ -8,7 +8,9 @@ use v5.14;     # using the + prototype for show_array, new to v5.14
 use POSIX qw(strftime);
 
 my $debug_me = defined $ENV{'DEBUGREF'} ? $ENV{'DEBUGREF'} : 'NONE';
+my $skip_old = defined $ENV{'SKIPOLD'};
 my $file_start_date; # get it from the input file so that time passing doesn't break unittests
+my $file_dt; # same, parsed
 
 sub panic($) {
     print "@_\n";
@@ -323,7 +325,6 @@ sub same_weekday_of_month_for_all($$) {
     my ($ref_dates, $which) = @_;
     my @dates = @$ref_dates;
     return 0 if scalar @dates < 3; # Not enough
-    state $file_dt = fast_parse_datetime($file_start_date);
     my $current_month;
     if ($which == -1) {
         $current_month = previous_month($file_dt->month);
@@ -525,6 +526,8 @@ sub main() {
     my $csv = Text::CSV->new({ binary => 1, sep_char => ';' });
     my $line_nr = 0;
 
+    my $today = DateTime->now->ymd;
+
     # Group lines by post office
     # Then group by day of week, so we can see what all Mondays look like etc.
     # Then group by opening time for that day of week, before trying to merge, so we can see what's usual and what's rare
@@ -540,6 +543,7 @@ sub main() {
         $office_names{$office_id} = $name;
         my $date = $row->[2];
         die unless defined $date;
+        next if ($skip_old and $date lt $today);
         $file_start_date = $date if (!defined $file_start_date or $date lt $file_start_date);
         my $opening = $row->[3];
         if ($row->[4] ne '') {
@@ -553,6 +557,7 @@ sub main() {
         $opening = "off" if $opening =~ /^FERME$/ and $day_of_week != 8; # PH hack so it stays separate
         push @{$office_data{$office_id}{$day_of_week}{$opening}}, $date;
     }
+    $file_dt = fast_parse_datetime($file_start_date);
     #print STDERR "Parsed $line_nr lines\n";
 
     # Aggregate the different opening hours for Mondays in different rules

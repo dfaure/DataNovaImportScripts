@@ -22,6 +22,7 @@ if [ -f data/new_opening_hours ]; then
     mv data/new_opening_hours data/new_opening_hours.orig
 fi
 
+export SKIPOLD=1
 echo "Parsing datanova data to deduce opening_hours..."
 if ! ./parse.pl $infile > data/new_opening_hours 2> data/warnings; then
     tail -n 1 data/warnings
@@ -85,5 +86,5 @@ echo "$actions objects modified in total" >> $stats
 mkdir -p changes
 ./filter_changes.py
 
-echo 'Check changes/*.osc and run ./upload_selection.sh'
+echo 'Check changes/*.osc and run ./upload_all.sh'
 
