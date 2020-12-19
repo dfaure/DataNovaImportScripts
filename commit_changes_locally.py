@@ -41,6 +41,7 @@ for hours_file in filenames:
             #print(hours_file + " " + data[0])
 
 # Save back the DB
-with open(local_db, "w") as f:
+with open(local_db + ".new", "w") as f:
     for ref in sorted(hours_dict.keys()):
         f.write(ref + "|" + office_names[ref] + "|" + hours_dict[ref] + "\n")
+os.rename(local_db + ".new", local_db)
