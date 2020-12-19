@@ -5,7 +5,7 @@ if [ "$1" = "-updateosm" ]; then
 fi
 
 infile=data/laposte_ouvertur.csv
-if [ ! -f "$infile" -o -n "`find $infile -mtime +6  2>/dev/null`" ]; then
+if [ ! -f "$infile" -o -n "`find $infile -mtime +5  2>/dev/null`" ]; then
     mkdir -p data
     echo "Need to refetch the datanova data... OK?"
     read confirmation
@@ -15,6 +15,8 @@ if [ ! -f "$infile" -o -n "`find $infile -mtime +6  2>/dev/null`" ]; then
     # 137MB download
     wget 'https://datanova.laposte.fr/explore/dataset/laposte_ouvertur/download/?format=csv&timezone=Europe/Berlin&lang=fr&use_labels_for_header=true&csv_separator=%3B' -O $infile
 fi
+
+date=`date +'%Y-%m-%d'`
 
 if [ -f data/new_opening_hours ]; then
     mv data/new_opening_hours data/new_opening_hours.orig
@@ -29,8 +31,9 @@ ready=`grep -v ERROR data/new_opening_hours | wc -l`
 errors=`grep ERROR data/new_opening_hours | wc -l`
 datanovacount=`cat data/new_opening_hours | wc -l`
 statline="datanova: $datanovacount post offices: $ready with resolved rules, $errors with unresolved rules."
+stats=data/stats$date
 echo "$statline"
-echo "$statline" > data/stats
+echo "$statline" > $stats
 echo "(see ../warnings)"
 
 xmlfile=data/osm_post_offices.xml
@@ -48,10 +51,10 @@ fi
 osm_post_offices_count=`grep k=\"ref:FR:LaPoste\" data/osm_post_offices.xml | wc -l`
 statline="OSM data: $osm_post_offices_count post offices with ref:FR:LaPoste"
 echo "$statline"
-echo "$statline" >> data/stats
+echo "$statline" >> $stats
 
 echo "Processing XML to insert opening times..."
-log=data/process_post_offices.log
+log=data/process_post_offices$date.log
 if [ -f $log ]; then
     mv $log $log.orig
 fi
@@ -73,11 +76,11 @@ missingPH=`grep 'missing PH off' $log | wc -l`
 duperef=`grep 'duplicate ref' $log | wc -l`
 statline="$adding set because empty in OSM, $replacing to be updated, $missingPH only missing 'PH off', $disagree disagreements (skipped), $agree agreements, $touched skipped because modified by a human, $notin not in datanova (wrong ref?), $duperef duplicate refs in OSM, $notready not ready (unresolved rules)"
 echo "$statline"
-echo "$statline" >> data/stats
+echo "$statline" >> $stats
 
 actions=`grep -w modify $osmfile | wc -l`
 echo "$actions objects modified in total"
-echo "$actions objects modified in total" >> data/stats
+echo "$actions objects modified in total" >> $stats
 
 mkdir -p changes
 ./filter_changes.py
