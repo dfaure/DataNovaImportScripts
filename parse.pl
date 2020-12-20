@@ -241,12 +241,12 @@ sub try_single_day_exception($$$) {
         #print "" . (scalar @dates) . " dates\n";
         if (scalar @dates == 1) {
             die if defined $day_exceptions{$opening}; # aren't openings unique in date_sets? If not, the next line overwrites...
-            $day_exceptions{$opening} = full_day_name($dates[0]);
+            $day_exceptions{$opening} = $dates[0];
             unshift @deleted_openings, $i; # unshift is push_front, so we reverse the order, for the delete
         } elsif (scalar @dates == 2) {
             # An exception for two days. Do this only once to avoid too long rules.
             return 0 if (scalar @deleted_openings > 0);
-            $day_exceptions{$opening} = full_day_name($dates[0]) . ',' . full_day_name($dates[1]);
+            $day_exceptions{$opening} = $dates[0] . ',' . $dates[1];
             unshift @deleted_openings, $i;
         } else {
             return 0 if $default_rule_seen;
@@ -693,7 +693,7 @@ sub main() {
             }
             my %local_day_exceptions = %{$rules->day_exceptions};
             foreach my $opening (keys %local_day_exceptions) {
-                push @{$day_exceptions{$office_id}{$opening}}, $local_day_exceptions{$opening};
+                push @{$day_exceptions{$office_id}{$opening}}, split(',', $local_day_exceptions{$opening});
             }
         }
     }
@@ -748,8 +748,8 @@ sub main() {
             my %local_day_exceptions = %{$day_exceptions{$office_id}};
             foreach my $opening (sort(keys %local_day_exceptions)) {
                 my @days = @{$local_day_exceptions{$opening}};
-                foreach my $day (@days) {
-                    $full_list .= "$day,";
+                foreach my $day (sort @days) {
+                    $full_list .= full_day_name($day) . ",";
                 }
                 $full_list =~ s/,$/ $opening; /; # Remove last comma, add opening hours
             }
