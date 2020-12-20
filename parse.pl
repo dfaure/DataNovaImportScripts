@@ -44,7 +44,7 @@ sub month_name($) {
 
 # Turn "1235" into "Mo-We,Fr"
 sub abbrevs($) {
-    my ($daynums) = @_; # ex: 1235, 8 for NH
+    my ($daynums) = @_; # ex: 1235, 8 for PH
     my $ret = "";
     my @digits = split(//, $daynums);
     push @digits, 9; # so that 8 gets processed
@@ -161,6 +161,27 @@ use Class::Struct Rules => {
 #    return scalar @{$self->{'Rules::selectors'}} >= 1;
 #}
 
+# https://perldoc.perl.org/Class::Struct
+use Class::Struct Context => {
+    office_id => '$',
+    office_name => '$',
+    day_of_week => '$'
+};
+
+sub check_consistency($$$) {
+    my ($context, $func, $rules) = @_;
+    my @selectors = @{$rules->selectors};
+    my @openings = @{$rules->openings};
+    if ((scalar @selectors) != (scalar @openings)) {
+        my $dow_name = day_of_week_name($context->day_of_week);
+        print STDERR "ERROR: " . $context->office_id . ":" . $context->office_name . ": $dow_name: ".
+                     "$func: different number of selectors and openings: " . (scalar @selectors) . " selectors " . (scalar @openings) . " openings\n";
+        show_array(@selectors);
+        print "Openings:\n"; show_array(@openings);
+        die; # Adjust when we'll get data sets without any PH
+    }
+}
+
 sub year_for_all($) {
     my $ref_dates = shift;
     my @dates = @$ref_dates;
@@ -197,52 +218,73 @@ sub try_year_split($$) {
     #print STDERR "Year split: " . @date_sets . "\n";
     #show_array(@years);
     $rules->selectors(\@years); # assign
+
     return 1;
 }
 
 # If the input array has a single day in one date_set, and everything in the other
 # then define an exception for that single day, and a "" rule for the other set.
 # Returns 1 on success
-sub try_single_day_exception($$) {
-    my ($ref_dates, $rules) = @_;
+sub try_single_day_exception($$$) {
+    my ($context, $ref_dates, $rules) = @_;
     my @date_sets = @$ref_dates;
-    my %day_exceptions = ();
-    return 0 if scalar @date_sets < 2 or scalar @date_sets > 3; # only tested with 2 and 3
+    # only tested with 2 and 3, and it gets very long otherwise
+    return 0 if scalar @date_sets < 2 or scalar @date_sets > 3;
     my @openings = @{$rules->openings};
+    my @deleted_openings = ();
     my @selectors = ();
-    my $date_set_number;
+    my %day_exceptions = ();
     my $default_rule_seen = 0;
     for my $i ( 0 .. $#date_sets ) {
         my @dates = @{$date_sets[$i]};
+        my $opening = $openings[$i];
+        #print "" . (scalar @dates) . " dates\n";
         if (scalar @dates == 1) {
-            if (defined $date_set_number) {
-                # Urgh, two single day exceptions
-                # PH: pick the one which is not closed, as exception
-                if ($openings[$i] eq 'FERME') {
-                    push @selectors, '';
-                    next;
-                } elsif ($openings[$date_set_number] eq 'FERME') {
-                    $selectors[0] = ''; # revert previous rule so the special case is this one
-                }
-            }
-            $date_set_number = $i;
-            push @selectors, full_day_name($dates[0]);
+            die if defined $day_exceptions{$opening}; # aren't openings unique in date_sets? If not, the next line overwrites...
+            $day_exceptions{$opening} = full_day_name($dates[0]);
+            unshift @deleted_openings, $i; # unshift is push_front, so we reverse the order, for the delete
         } elsif (scalar @dates == 2) {
-            # Only supported once
-            return 0 if (defined $date_set_number);
-            $date_set_number = $i;
-            push @selectors, full_day_name($dates[0]) . ',' . full_day_name($dates[1]);
+            # An exception for two days. Do this only once to avoid too long rules.
+            return 0 if (scalar @deleted_openings > 0);
+            $day_exceptions{$opening} = full_day_name($dates[0]) . ',' . full_day_name($dates[1]);
+            unshift @deleted_openings, $i;
         } else {
             return 0 if $default_rule_seen;
             push @selectors, '';
             $default_rule_seen = 1;
         }
     }
-    if (defined $date_set_number) {
-        $rules->selectors(\@selectors); # assign
-        return 1;
+
+    # Special case for public holidays
+    # We want a default "PH: off" rule, if at least one PH is off.
+    if ($context->day_of_week == 8 and scalar @selectors == 0) {
+        if (defined $day_exceptions{'off'}) {
+            push @selectors, '';
+            push @openings, 'off';
+            delete($day_exceptions{'off'});
+        } else {
+            # Which one should we pick as default rule?
+            # Any one would do, but we need reliable results...
+            push @selectors, 'ERROR';
+            push @openings, 'ERROR';
+        }
     }
-    return 0;
+    if ($context->office_id eq $debug_me) {
+        print "Selectors:\n"; show_array(@selectors);
+        print "Openings:\n"; show_array(@openings);
+        print "Day exceptions:\n";
+        foreach my $key (keys %day_exceptions) {
+            print "$key: " . $day_exceptions{$key} . "\n";
+        }
+    }
+
+    $rules->day_exceptions(\%day_exceptions); # assign
+    $rules->selectors(\@selectors); # assign
+    foreach my $del_idx (@deleted_openings) {
+        splice(@openings, $del_idx, 1);
+    }
+    $rules->openings(\@openings); # assign
+    return 1;
 }
 
 sub month_for_all($) {
@@ -325,7 +367,9 @@ sub delete_future_changes($$) {
     for my $i ( 0 .. $#date_sets ) {
         next if $i == $last_index;
         my @dates = @{$date_sets[$i]};
-        return @abort if (scalar @dates <= 1); # One isn't enough for a rule
+        # 2 would work too, if try_single_day_exception handles all 2-days-exceptions,
+        # but it leads to final rules too long, see two_two_days_exceptions.csv.
+        return @abort if (scalar @dates <= 1);
         foreach my $date (@dates) {
             return @abort if ($date gt $last_min);
         }
@@ -471,16 +515,19 @@ sub try_alternating_weeks($$) {
 # @openings : those N sets of openings (not much used here)
 # Returns N sets of OSM rules and the corresponding opening hours, plus M single-day exceptions
 sub rules_for_day_of_week($$$) {
-    my ($day_of_week, $ref_dates, $ref_openings) = @_;
+    my ($context, $ref_dates, $ref_openings) = @_;
 
     my @temp_date_sets = @$ref_dates;
-    #print day_of_week_name($day_of_week) . ": date sets\n"; show_array(@temp_date_sets);
+    #print day_of_week_name($context->day_of_week) . ": date sets\n"; show_array(@temp_date_sets);
 
     my %day_exceptions = ();
 
     my $rules = Rules->new( openings => $ref_openings );
 
-    return $rules if (try_year_split($ref_dates, $rules));
+    if (try_year_split($ref_dates, $rules)) {
+        check_consistency($context, "After try_year_split", $rules);
+        return $rules;
+    }
 
     my $success = 0;
     while (scalar @temp_date_sets > 1) {
@@ -488,6 +535,7 @@ sub rules_for_day_of_week($$$) {
         last if (!$success);
         @temp_date_sets = @$ref_dates;
     }
+
     my @date_sets = @$ref_dates;
     if (scalar @date_sets == 1) {
         # Stable opening times -> single rule for that day
@@ -495,18 +543,30 @@ sub rules_for_day_of_week($$$) {
         return $rules;
     }
 
-    return $rules if (try_single_day_exception($ref_dates, $rules));
+    if (try_single_day_exception($context, $ref_dates, $rules)) {
+        check_consistency($context, "After try_single_day_exception", $rules);
+        return $rules;
+    }
 
-    return $rules if (try_year_split($ref_dates, $rules));
+    if (try_year_split($ref_dates, $rules)) {
+        check_consistency($context, "After try_year_split", $rules);
+        return $rules;
+    }
 
-    return $rules if try_alternating_weeks($ref_dates, $rules);
+    if (try_alternating_weeks($ref_dates, $rules)) {
+        check_consistency($context, "After try_alternating_weeks", $rules);
+        return $rules;
+    }
 
     for my $which(-1, 1 .. 4) {
         # -1 = last "weekday" of month, 1 = first "weekday" of month...
         return $rules if (try_same_weekday_of_month($ref_dates, $which, $rules));
     }
 
-    return $rules if (try_month_exception($ref_dates, $rules));
+    if (try_month_exception($ref_dates, $rules)) {
+        check_consistency($context, "After try_month_exception", $rules);
+        return $rules;
+    }
 
     for my $i (0..$#date_sets) {
         push @{$rules->selectors}, "ERROR-" . $i;
@@ -574,7 +634,7 @@ sub main() {
         }
         die "unsupported: see line $line_nr" if ($row->[6] ne '');
         my $day_of_week = get_day_of_week($date);
-        $opening = "off" if $opening =~ /^FERME$/ and $day_of_week != 8; # PH hack so it stays separate
+        $opening = "off" if $opening =~ /^FERME$/;
         push @{$office_data{$office_id}{$day_of_week}{$opening}}, $date;
     }
     $file_dt = fast_parse_datetime($file_start_date);
@@ -591,6 +651,7 @@ sub main() {
     foreach my $office_id (sort(keys %office_data)) {
         my $office_name = $office_names{$office_id};
         foreach my $day_of_week (sort keys %{$office_data{$office_id}}) {
+            my $context = Context->new( office_id => $office_id, office_name => $office_name, day_of_week => $day_of_week );
             my %dayhash = %{$office_data{$office_id}{$day_of_week}};
             my $dow_name = day_of_week_name($day_of_week); # for debug
             my @all_openings = keys %dayhash;
@@ -607,14 +668,15 @@ sub main() {
                     print STDERR "   $opening on @dates\n";
                 }
             }
-            my $ret = rules_for_day_of_week($day_of_week, \@date_sets, \@all_openings);
-            my @selectors = @{$ret->selectors};
-            #print STDERR "$office_name: $dow_name " . (scalar @selectors) . " selectors\n";
-            @all_openings = @{$ret->openings};
+            my $rules = rules_for_day_of_week($context, \@date_sets, \@all_openings);
+            my @selectors = @{$rules->selectors};
+            @all_openings = @{$rules->openings};
+            #print STDERR "$office_name: $dow_name " . (scalar @selectors) . " selectors " . (scalar @all_openings) . " openings\n";
             if ((scalar @selectors) == 0) {
                 print STDERR "ERROR: $office_id:$office_name: $dow_name has no rules at all. @all_openings\n";
                 die; # Adjust when we'll get data sets without any PH
             }
+            check_consistency($context, "Return value from rules_for_day_of_week", $rules);
             if ($selectors[0] eq "ERROR-0") {
                 print STDERR "WARNING: $office_id:$office_name: $dow_name has multiple outcomes: @all_openings\n";
                 foreach my $opening (@all_openings) {
@@ -629,9 +691,9 @@ sub main() {
                 $days_for_times{$office_id}{$selector}{$opening} .= $day_of_week;
                 print STDERR "$office_name: $dow_name idx=$idx selector=$selector opening=$opening\n" if ($office_id eq $debug_me);;
             }
-            my %local_day_exceptions = %{$ret->day_exceptions};
+            my %local_day_exceptions = %{$rules->day_exceptions};
             foreach my $opening (keys %local_day_exceptions) {
-                $day_exceptions{$office_id}{$opening} .= $local_day_exceptions{$opening};
+                push @{$day_exceptions{$office_id}{$opening}}, $local_day_exceptions{$opening};
             }
         }
     }
@@ -653,7 +715,7 @@ sub main() {
                 if (defined $daynums) {
                     if ($selector eq "") {
                         if ($day_of_week == 8) {
-                            $full_list .= "PH " . ($opening eq 'FERME' ? "off" : $opening) . "; ";
+                            $full_list .= "PH $opening; ";
                         } elsif ($opening ne 'off') { # off is default anyway (except for PH)
                             $full_list .= abbrevs($daynums) . " $opening; ";
                         }
@@ -668,8 +730,13 @@ sub main() {
                             $specific_list .= write_rule($single_selector, $daynums, $opening);
                         }
                     }
-                    # The first day of the week in a range like Mo-Fr prints it all
-                    undef $days_for{$selector}{$opening};
+                    # The first day of the week in a range like Mo-Fr prints it all, except PH
+                    $daynums =~ s/[1-7]*//g;
+                    if ($daynums eq '') {
+                        undef $days_for{$selector}{$opening};
+                    } else {
+                        $days_for{$selector}{$opening} = $daynums;
+                    }
                 }
             }
             # Flush specific list for that day-of-week
@@ -679,7 +746,7 @@ sub main() {
         }
         if (defined $day_exceptions{$office_id}) {
             my %local_day_exceptions = %{$day_exceptions{$office_id}};
-            foreach my $opening (keys %local_day_exceptions) {
+            foreach my $opening (sort(keys %local_day_exceptions)) {
                 my @days = @{$local_day_exceptions{$opening}};
                 foreach my $day (@days) {
                     $full_list .= "$day,";
