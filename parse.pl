@@ -180,6 +180,9 @@ sub check_consistency($$$) {
         print "Openings:\n"; show_array(@openings);
         die; # Adjust when we'll get data sets without any PH
     }
+    if ($context->office_id eq $debug_me) {
+        print "$func\n";
+    }
 }
 
 sub year_for_all($) {
@@ -233,6 +236,7 @@ sub try_single_day_exception($$$) {
     my @openings = @{$rules->openings};
     my @deleted_openings = ();
     my @selectors = ();
+    my $two_days = 0;
     my %day_exceptions = ();
     my $default_rule_seen = 0;
     for my $i ( 0 .. $#date_sets ) {
@@ -245,9 +249,10 @@ sub try_single_day_exception($$$) {
             unshift @deleted_openings, $i; # unshift is push_front, so we reverse the order, for the delete
         } elsif (scalar @dates == 2) {
             # An exception for two days. Do this only once to avoid too long rules.
-            return 0 if (scalar @deleted_openings > 0);
+            return 0 if ($two_days > 0);
             $day_exceptions{$opening} = $dates[0] . ',' . $dates[1];
             unshift @deleted_openings, $i;
+            $two_days = 1;
         } else {
             return 0 if $default_rule_seen;
             push @selectors, '';
