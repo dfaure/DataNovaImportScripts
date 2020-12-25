@@ -56,10 +56,13 @@ echo "$statline" >> $stats
 
 echo "Processing XML to insert opening times..."
 log=data/process_post_offices_$date.log
+loglink=data/process_post_offices.log
 if [ -f $log ]; then
     mv $log $log.orig
 fi
+rm -f $loglink
 ./process_post_offices.py > $log || exit 1
+ln -s $log $loglink
 
 echo "Reformatting..."
 xmllint --format $osmfile > _xml && mv _xml $osmfile
