@@ -7,6 +7,9 @@ for changeset in changes/*.osc; do
 
     comment="Import des opening_hours sur les bureaux de poste n'en ayant pas"
     case $changeset in
+        */ph_off_special_days_*)
+            comment="Import des opening_hours: PH off et jours spécifiques manquant"
+            ;;
         */ph_off_*)
             comment="Import des opening_hours: PH off manquant"
             ;;

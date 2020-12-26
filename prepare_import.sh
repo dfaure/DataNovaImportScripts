@@ -62,7 +62,7 @@ if [ -f $log ]; then
 fi
 rm -f $loglink
 ./process_post_offices.py > $log || exit 1
-ln -s $log $loglink
+ln -s ../$log $loglink
 
 echo "Reformatting..."
 xmllint --format $osmfile > _xml && mv _xml $osmfile
@@ -75,10 +75,11 @@ touched=`grep 'modified meanwhile' $log | wc -l`
 agree=`grep agree $log | wc -l`
 disagree=`grep OSM\ says $log | wc -l`
 notin=`grep 'Not in datanova' $log | wc -l`
+onlycovid=`grep 'no opening_hours but covid hours' $log | wc -l`
 notready=`grep 'not ready' $log | wc -l`
 missingPH=`grep 'missing PH off' $log | wc -l`
 duperef=`grep 'duplicate ref' $log | wc -l`
-statline="$adding set because empty in OSM, $replacing to be updated, $missingPH only missing 'PH off', $disagree disagreements (skipped), $agree agreements, $touched skipped because modified by a human, $notin not in datanova (wrong ref?), $duperef duplicate refs in OSM, $notready not ready (unresolved rules)"
+statline="$adding set because empty in OSM, $replacing to be updated, $missingPH only missing 'PH off', $disagree disagreements (skipped), $agree agreements, $touched skipped because modified by a human, $onlycovid blocked by covid hours (opening_hours empty), $notin not in datanova (wrong ref?), $duperef duplicate refs in OSM, $notready not ready (unresolved rules)"
 echo "$statline"
 echo "$statline" >> $stats
 

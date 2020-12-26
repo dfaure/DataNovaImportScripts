@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # https://docs.python.org/3/library/xml.etree.elementtree.html#module-xml.etree.ElementTree
 import xml.etree.ElementTree as ET
+import os
 # https://github.com/rezemika/oh_sanitizer
 # Slow, doesn't change anything on our generated data, and breaks if bad data in OSM
 #from oh_sanitizer import sanitize_field
@@ -66,6 +67,11 @@ for child in root:
                         changed = True
                     elif old_opening_hours == new_opening_hours:
                         print(ref + ": agree")
+                    elif new_opening_hours.startswith(old_opening_hours + "; PH off"):
+                        print(ref + ": missing PH off and special days, adding: osm=" + old_opening_hours + " new=" + new_opening_hours)
+                        old_opening_hours_tag.set('v', new_opening_hours)
+                        child.set('X-reason', 'ph_off_special_days_') # for filter_changes.py
+                        changed = True
                     elif ref in saved_hours_dict:
                         saved_opening_hours = saved_hours_dict[ref]
                         if old_opening_hours == saved_opening_hours:
@@ -103,7 +109,7 @@ for child in root:
                         if old_opening_hours_covid == new_opening_hours:
                             print(ref + ": no opening_hours but covid hours match: " + old_opening_hours_covid)
                         else:
-                            print(ref + ": no opening_hours but covid hours: " + old_opening_hours_covid + ', datanova: ' + new_opening_hours)
+                            print(ref + ": no opening_hours but covid hours: " + old_opening_hours_covid + ', datanova: ' + new_opening_hours + ', See https://osmlab.github.io/osm-deep-history/#/'  + child.tag + '/' + id)
                     else:
                         print(ref + ": no opening_hours in OSM, adding")
                         opening_hours_tag = ET.SubElement(child, 'tag')
