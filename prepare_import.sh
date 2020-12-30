@@ -90,7 +90,6 @@ actions=`grep -w modify $osmfile | wc -l`
 echo "$actions objects modified in total"
 echo "$actions objects modified in total" >> $stats
 
-mkdir -p changes
 ./filter_changes.py
 
 echo 'Check changes/*.osc and run ./upload_all.sh'
