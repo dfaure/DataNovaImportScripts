@@ -33,6 +33,9 @@ errors=`grep ERROR data/new_opening_hours | wc -l`
 datanovacount=`cat data/new_opening_hours | wc -l`
 statline="datanova: $datanovacount post offices: $ready with resolved rules, $errors with unresolved rules."
 stats=data/stats_$date
+statslink=data/stats
+rm -f $statslink
+ln -s ../$stats $statslink
 echo "$statline"
 echo "$statline" > $stats
 echo "(see ../warnings)"

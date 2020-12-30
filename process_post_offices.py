@@ -2,9 +2,6 @@
 # https://docs.python.org/3/library/xml.etree.elementtree.html#module-xml.etree.ElementTree
 import xml.etree.ElementTree as ET
 import os
-# https://github.com/rezemika/oh_sanitizer
-# Slow, doesn't change anything on our generated data, and breaks if bad data in OSM
-#from oh_sanitizer import sanitize_field
 
 xmlfile = open("data/osm_post_offices.xml", "r")
 response = xmlfile.read()

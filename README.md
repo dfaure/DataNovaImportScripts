@@ -34,19 +34,12 @@ For each OSM post office with `ref:FR:LaPoste=*` attribute, detect and handle th
 * No opening hours to set because the datanova data parser failed to create a recurring rule (skip)
 * No hours in OSM -- this is the common case until the first import (set them)
 * Agreement on the opening\_hours (skip)
-* Agreement on the opening\_hours except for a missing 'PH off' in OSM (add it)
+* Agreement on the opening\_hours except for a missing 'PH off' in OSM, or single-day exceptions (add what's missing)
 * Hours in datanova have changed, and nobody modified the hours previously set by the script (replace them)
 * Hours in datanova have changed, but someone changed the hours in OSM (skip)
 * OSM and datanova simply have different data (skip)
 
 # Setup
-
-## Lark
-Older lark due to https://github.com/rezemika/humanized_opening_hours/issues/34
-
-    git clone https://github.com/lark-parser/lark.git
-    cd lark ; git checkout 0.6.6
-    python3 ./setup.py install --prefix /home/dfaure/.local
 
 ## osm-bulk-upload
 Do this in the parent directory of this checkout
@@ -55,5 +48,4 @@ Do this in the parent directory of this checkout
 
 ## Other dependencies
     pip install overpass
-    pip install oh_sanitizer
 
