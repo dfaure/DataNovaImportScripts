@@ -128,16 +128,16 @@ for child in root:
                         changed = True
                     elif old_special_days_removed(old_opening_hours, new_opening_hours):
                         print(ref + ": only old special days removed, agree\n" + old_vs_new)
+                    elif ref in force:
+                        print(ref + ": repairing former problem after no external change, see https://osmlab.github.io/osm-deep-history/#/"  + child.tag + '/' + id)
+                        old_opening_hours_tag.set('v', new_opening_hours)
+                        child.set('X-reason', 'update_') # for filter_changes.py
+                        changed = True
                     elif ref in saved_hours_dict:
                         saved_opening_hours = saved_hours_dict[ref]
                         saved_vs_new = ref + ":   was " + saved_opening_hours + "\n" + ref + ":   now " + new_opening_hours
                         if old_opening_hours == saved_opening_hours:
                             print(ref + ": datanova changed and OSM was untouched meanwhile, replacing.\n" + saved_vs_new)
-                            old_opening_hours_tag.set('v', new_opening_hours)
-                            child.set('X-reason', 'update_') # for filter_changes.py
-                            changed = True
-                        elif ref in force:
-                            print(ref + ": repairing former problem after no external change, see https://osmlab.github.io/osm-deep-history/#/"  + child.tag + '/' + id)
                             old_opening_hours_tag.set('v', new_opening_hours)
                             child.set('X-reason', 'update_') # for filter_changes.py
                             changed = True
@@ -166,7 +166,7 @@ for child in root:
                         #changed = True
                 else:
                     old_opening_hours_covid_tag = child.find("./tag[@k='opening_hours:covid19']")
-                    if not old_opening_hours_covid_tag is None and old_opening_hours_covid_tag.get('v') != "open":
+                    if not old_opening_hours_covid_tag is None and old_opening_hours_covid_tag.get('v') != "open" and not ref in force:
                         old_opening_hours_covid = old_opening_hours_covid_tag.get('v')
                         if old_opening_hours_covid == new_opening_hours:
                             print(ref + ": no opening_hours but covid hours match: " + old_opening_hours_covid)
@@ -177,6 +177,8 @@ for child in root:
                         opening_hours_tag = ET.SubElement(child, 'tag')
                         opening_hours_tag.set('k', 'opening_hours')
                         opening_hours_tag.set('v', new_opening_hours)
+                        if not old_opening_hours_covid_tag is None:
+                            child.remove(old_opening_hours_covid_tag)
                         changed = True
         if changed:
             child.set('action', 'modify')

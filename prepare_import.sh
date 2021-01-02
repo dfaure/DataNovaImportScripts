@@ -19,7 +19,7 @@ fi
 date=`date +'%Y-%m-%d'`
 
 if [ -f data/new_opening_hours ]; then
-    mv data/new_opening_hours data/new_opening_hours.orig
+    mv data/new_opening_hours data/new_opening_hours.bak
 fi
 
 export SKIPOLD=1
@@ -33,6 +33,9 @@ errors=`grep ERROR data/new_opening_hours | wc -l`
 datanovacount=`cat data/new_opening_hours | wc -l`
 statline="datanova: $datanovacount post offices: $ready with resolved rules, $errors with unresolved rules."
 stats=data/stats_$date
+if [ -f $stats ]; then
+    cp -f $stats ${stats}.bak
+fi
 statslink=data/stats
 rm -f $statslink
 ln -s ../$stats $statslink
@@ -46,7 +49,7 @@ osmfile=data/osm_post_offices.osm
 if [ -n "$updateosm" -o ! -f $xmlfile -o -n "`find $xmlfile -mtime +1 2>/dev/null`" ]; then
     echo "Refetching all post offices via overpass..."
     if [ -f $xmlfile ]; then
-        mv -f $xmlfile $xmlfile.orig
+        mv -f $xmlfile $xmlfile.bak
     fi
     ./get_all_post_offices.py || exit 1
     xmllint --format $xmlfile > _xml && mv _xml $xmlfile
@@ -61,7 +64,7 @@ echo "Processing XML to insert opening times..."
 log=data/process_post_offices_$date.log
 loglink=data/process_post_offices.log
 if [ -f $log ]; then
-    mv $log $log.orig
+    mv $log $log.bak
 fi
 rm -f $loglink
 ./process_post_offices.py > $log || exit 1
