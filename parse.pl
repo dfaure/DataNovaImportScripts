@@ -656,8 +656,6 @@ sub main() {
     foreach my $office_id (sort(keys %office_data)) {
         my $office_name = $office_names{$office_id};
         my %one_office_data = %{$office_data{$office_id}};
-        # Assume "PH off" when there are no PH in the next 3 months, for stability
-        $one_office_data{8} = 'off' if not defined($one_office_data{8});
         foreach my $day_of_week (sort keys %one_office_data) {
             my $context = Context->new( office_id => $office_id, office_name => $office_name, day_of_week => $day_of_week );
             my %dayhash = %{$one_office_data{$day_of_week}};
@@ -703,6 +701,11 @@ sub main() {
             foreach my $opening (keys %local_day_exceptions) {
                 push @{$day_exceptions{$office_id}{$opening}}, split(',', $local_day_exceptions{$opening});
             }
+        }
+        # Assume "PH off" when there are no PH in the next 3 months, for stability
+        if (!defined($one_office_data{8})) {
+            $office_times{$office_id}{8}{''} = 'off';
+            $days_for_times{$office_id}{''}{'off'} .= '8';
         }
     }
 

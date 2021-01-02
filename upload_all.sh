@@ -20,10 +20,8 @@ for changeset in changes/*.osc; do
 
     url="https://wiki.openstreetmap.org/wiki/Import/FrenchPostOfficeOpeningHours"
 
-    # Note that these two tags were hacked directly into upload.py:
-    # import=yes
     ../osm-bulk-upload/upload.py -u davidfaure_bot -p $password -c yes -m "$comment" $changeset \
-    -x "DataNovaImportScripts $version, via osm-bulk-upload/python.py" -y "datanova.laposte.fr, $date" -z "$url"
+    -x "DataNovaImportScripts $version, via osm-bulk-upload/python.py" -y "datanova.laposte.fr, $date" -z "$url" -i
     exitcode=$?
 
     if [ $exitcode -eq 0 ]; then
