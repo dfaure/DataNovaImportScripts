@@ -53,17 +53,19 @@ def old_special_days_removed(old_opening_hours, new_opening_hours):
     if 'ERROR' in old_opening_hours or 'ERROR' in new_opening_hours:
         return False;
     #print(old_opening_hours + '\nnew=' + new_opening_hours)
-    pos_old = old_opening_hours.find('PH off; ')
-    pos_new = new_opening_hours.find('PH off; ')
+    pos_old = old_opening_hours.find('PH off')
+    pos_new = new_opening_hours.find('PH off')
     if pos_old < 0 or pos_new < 0 or pos_old != pos_new:
         return False
-    old_left = old_opening_hours[:pos_old+8]
-    new_left = new_opening_hours[:pos_new+8]
+    old_left = old_opening_hours[:pos_old+6]
+    new_left = new_opening_hours[:pos_new+6]
     if old_left != new_left:
+        #print(old_left + ' != ' + new_left)
         return False;
     old_right = old_opening_hours[pos_old+8:]
     new_right = new_opening_hours[pos_new+8:]
     if not old_right.endswith(new_right):
+        #print(old_right + ' does not end with ' + new_right)
         return False
     now = datetime.datetime.now()
     removed_str = old_right[:len(old_right)-len(new_right)]

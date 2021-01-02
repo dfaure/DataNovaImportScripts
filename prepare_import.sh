@@ -92,5 +92,5 @@ echo "$actions objects modified in total" >> $stats
 
 ./filter_changes.py
 
-echo 'Check changes/*.osc and run ./upload_all.sh'
+echo 'Check data/process_post_offices.log and run ./upload_all.sh'
 
