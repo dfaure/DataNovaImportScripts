@@ -22,7 +22,6 @@ if [ -f data/new_opening_hours ]; then
     mv data/new_opening_hours data/new_opening_hours.bak
 fi
 
-export SKIPOLD=1
 echo "Parsing datanova data to deduce opening_hours..."
 if ! ./parse.pl $infile > data/new_opening_hours 2> data/warnings; then
     tail -n 1 data/warnings

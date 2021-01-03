@@ -99,6 +99,7 @@ for child in root:
     if child.tag == 'node' or child.tag == 'way':
         ref = child.find("./tag[@k='ref:FR:LaPoste']").get('v')
         id = child.get('id')
+        deepurl = "https://osmlab.github.io/osm-deep-history/#/"  + child.tag + '/' + id
         changed = False
         if ref in seen_refs:
             print("OSM error: duplicate ref " + ref + ' used in https://www.openstreetmap.org/' + seen_refs[ref] + ' and https://www.openstreetmap.org/' + child.tag + '/' + id + ' - check with https://www.laposte.fr/particulier/outils/trouver-un-bureau-de-poste/bureau-detail/' + ref + '/' + ref)
@@ -129,7 +130,7 @@ for child in root:
                     elif old_special_days_removed(old_opening_hours, new_opening_hours):
                         print(ref + ": only old special days removed, agree\n" + old_vs_new)
                     elif ref in force:
-                        print(ref + ": repairing former problem after no external change, see https://osmlab.github.io/osm-deep-history/#/"  + child.tag + '/' + id)
+                        print(ref + ": repairing former problem after no external change, see " + deepurl)
                         old_opening_hours_tag.set('v', new_opening_hours)
                         child.set('X-reason', 'update_') # for filter_changes.py
                         changed = True
@@ -142,9 +143,9 @@ for child in root:
                             child.set('X-reason', 'update_') # for filter_changes.py
                             changed = True
                         elif saved_opening_hours == new_opening_hours:
-                            print(ref + ": no change in datanova, still " + saved_opening_hours + " but OSM was modified meanwhile, to " + old_opening_hours + ", skipping. See https://osmlab.github.io/osm-deep-history/#/"  + child.tag + '/' + id)
+                            print(ref + ": no change in datanova, still " + saved_opening_hours + " but OSM was modified meanwhile, to " + old_opening_hours + ", skipping. " + deepurl)
                         else:
-                            print(ref + ": datanova changed from " + saved_opening_hours + " to " + new_opening_hours + " but OSM was modified by a human meanwhile, to " + old_opening_hours + ", skipping. See https://osmlab.github.io/osm-deep-history/#/"  + child.tag + '/' + id)
+                            print(ref + ": datanova changed from " + saved_opening_hours + " to " + new_opening_hours + " but OSM was modified by a human meanwhile, to " + old_opening_hours + ", skipping. See " + deepurl)
                     else:
                         print(ref + ": OSM says " + old_opening_hours + " datanova says " + new_opening_hours + " leaving untouched for now")
 
@@ -166,12 +167,22 @@ for child in root:
                         #changed = True
                 else:
                     old_opening_hours_covid_tag = child.find("./tag[@k='opening_hours:covid19']")
-                    if not old_opening_hours_covid_tag is None and old_opening_hours_covid_tag.get('v') != "open" and not ref in force:
-                        old_opening_hours_covid = old_opening_hours_covid_tag.get('v')
-                        if old_opening_hours_covid == new_opening_hours:
-                            print(ref + ": no opening_hours but covid hours match: " + old_opening_hours_covid)
+                    old_timestamp = child.get("timestamp") < '2020-05-01'
+                    if not old_opening_hours_covid_tag is None and old_opening_hours_covid_tag.get('v') != "open":
+                        if old_timestamp or ref in force:
+                            print(ref + ": overriding covid entry due to old timestamp and no opening_hours in OSM. See " + deepurl)
+                            opening_hours_tag = ET.SubElement(child, 'tag')
+                            opening_hours_tag.set('k', 'opening_hours')
+                            opening_hours_tag.set('v', new_opening_hours)
+                            child.remove(old_opening_hours_covid_tag)
+                            changed = True
                         else:
-                            print(ref + ": no opening_hours but covid hours: " + old_opening_hours_covid + ', datanova: ' + new_opening_hours + ', See https://osmlab.github.io/osm-deep-history/#/'  + child.tag + '/' + id)
+                            old_opening_hours_covid = old_opening_hours_covid_tag.get('v')
+                            if old_opening_hours_covid == new_opening_hours:
+                                print(ref + ": no opening_hours but covid hours match: " + old_opening_hours_covid)
+                            else:
+                                print(ref + ": no opening_hours but covid hours: " + old_opening_hours_covid + ', datanova: ' + new_opening_hours + ', see ' + deepurl)
+
                     else:
                         print(ref + ": no opening_hours in OSM, adding")
                         opening_hours_tag = ET.SubElement(child, 'tag')

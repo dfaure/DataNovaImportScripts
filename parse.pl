@@ -9,7 +9,7 @@ use v5.14;     # using the + prototype for show_array, new to v5.14
 use POSIX qw(strftime);
 
 my $debug_me = defined $ENV{'DEBUGREF'} ? $ENV{'DEBUGREF'} : 'NONE';
-my $skip_old = defined $ENV{'SKIPOLD'};
+my $skip_old = not defined $ENV{'KEEPOLD'};
 my $file_start_date; # get it from the input file so that time passing doesn't break unittests
 my $file_dt; # same, parsed
 
@@ -152,6 +152,7 @@ sub get_week_number($) {
 
 # https://perldoc.perl.org/Class::Struct
 use Class::Struct Rules => {
+    dates_sets => '@',
     selectors => '@',
     openings => '@',
     day_exceptions => '%'
@@ -168,10 +169,29 @@ use Class::Struct Context => {
     day_of_week => '$'
 };
 
+sub debug_step($$$) {
+    my ($context, $func, $rules) = @_;
+    my @selectors = @{$rules->selectors};
+    my @openings = @{$rules->openings};
+
+    if ($context->office_id eq $debug_me) {
+        print "$func\n";
+        print "  Selectors:\n"; show_array(@selectors);
+        print "  Openings:\n"; show_array(@openings);
+        print "  Day exceptions:\n";
+        my %day_exceptions = %{$rules->day_exceptions};
+        foreach my $key (keys %day_exceptions) {
+            print "    $key: " . $day_exceptions{$key} . "\n";
+        }
+    }
+}
+
 sub check_consistency($$$) {
     my ($context, $func, $rules) = @_;
     my @selectors = @{$rules->selectors};
     my @openings = @{$rules->openings};
+
+    debug_step($context, $func, $rules);
     if ((scalar @selectors) != (scalar @openings)) {
         my $dow_name = day_of_week_name($context->day_of_week);
         print STDERR "ERROR: " . $context->office_id . ":" . $context->office_name . ": $dow_name: ".
@@ -179,9 +199,6 @@ sub check_consistency($$$) {
         show_array(@selectors);
         print "Openings:\n"; show_array(@openings);
         die; # Adjust when we'll get data sets without any PH
-    }
-    if ($context->office_id eq $debug_me) {
-        print "$func\n";
     }
 }
 
@@ -201,9 +218,9 @@ sub year_for_all($) {
 
 # If the input array has 2020 for all dates in [0] and 2021 for all dates in [1]
 # then return [ '2020', '' ]
-sub try_year_split($$) {
-    my ($ref_dates, $rules) = @_;
-    my @date_sets = @$ref_dates;
+sub try_year_split($) {
+    my ($rules) = @_;
+    my @date_sets = @{$rules->dates_sets};
     return 0 if scalar @date_sets != 2;
     my @years = ();
     my %seen_years = ();
@@ -228,17 +245,16 @@ sub try_year_split($$) {
 # If the input array has a single day in one date_set, and everything in the other
 # then define an exception for that single day, and a "" rule for the other set.
 # Returns 1 on success
-sub try_single_day_exception($$$) {
-    my ($context, $ref_dates, $rules) = @_;
-    my @date_sets = @$ref_dates;
+sub try_single_day_exception($$) {
+    my ($context, $rules) = @_;
+    my @date_sets = @{$rules->dates_sets};
     # only tested with 2 and 3, and it gets very long otherwise
     return 0 if scalar @date_sets < 2 or scalar @date_sets > 3;
     my @openings = @{$rules->openings};
     my @deleted_openings = ();
-    my @selectors = ();
     my $two_days = 0;
+    my $off_index = -1;
     my %day_exceptions = ();
-    my $default_rule_seen = 0;
     for my $i ( 0 .. $#date_sets ) {
         my @dates = @{$date_sets[$i]};
         my $opening = $openings[$i];
@@ -247,48 +263,46 @@ sub try_single_day_exception($$$) {
             die if defined $day_exceptions{$opening}; # aren't openings unique in date_sets? If not, the next line overwrites...
             $day_exceptions{$opening} = $dates[0];
             unshift @deleted_openings, $i; # unshift is push_front, so we reverse the order, for the delete
+            $off_index = $i if ($opening eq 'off');
         } elsif (scalar @dates == 2) {
             # An exception for two days. Do this only once to avoid too long rules.
             return 0 if ($two_days > 0);
             $day_exceptions{$opening} = $dates[0] . ',' . $dates[1];
             unshift @deleted_openings, $i;
             $two_days = 1;
-        } else {
-            return 0 if $default_rule_seen;
-            push @selectors, '';
-            $default_rule_seen = 1;
+            $off_index = $i if ($opening eq 'off');
         }
     }
 
     # Special case for public holidays
     # We want a default "PH: off" rule, if at least one PH is off.
-    if ($context->day_of_week == 8 and scalar @selectors == 0) {
+    if ($context->day_of_week == 8) {
         if (defined $day_exceptions{'off'}) {
-            push @selectors, '';
-            push @openings, 'off';
             delete($day_exceptions{'off'});
         } else {
             # Which one should we pick as default rule?
             # Any one would do, but we need reliable results...
-            push @selectors, 'ERROR';
+            $rules->openings(['ERROR']); # assign
             push @openings, 'ERROR';
-        }
-    }
-    if ($context->office_id eq $debug_me) {
-        print "Selectors:\n"; show_array(@selectors);
-        print "Openings:\n"; show_array(@openings);
-        print "Day exceptions:\n";
-        foreach my $key (keys %day_exceptions) {
-            print "$key: " . $day_exceptions{$key} . "\n";
         }
     }
 
     $rules->day_exceptions(\%day_exceptions); # assign
-    $rules->selectors(\@selectors); # assign
     foreach my $del_idx (@deleted_openings) {
+        if ($context->office_id eq $debug_me) {
+            if ($context->day_of_week == 8 and $off_index == $del_idx) {
+                print STDERR "NOT deleting at index $del_idx\n";
+            } else {
+                print STDERR "Deleting at index $del_idx\n";
+            }
+        }
+
+        next if ($context->day_of_week == 8 and $off_index == $del_idx);
         splice(@openings, $del_idx, 1);
+        splice(@date_sets, $del_idx, 1);
     }
     $rules->openings(\@openings); # assign
+    $rules->dates_sets(\@date_sets); # assign
     return 1;
 }
 
@@ -308,9 +322,9 @@ sub month_for_all($) {
 
 # If the input array has dates in one month in [0] and other months in [1]
 # then return [ 'MonthName', '' ]
-sub try_month_exception($$) {
-    my ($ref_dates, $rules) = @_;
-    my @date_sets = @$ref_dates;
+sub try_month_exception($) {
+    my ($rules) = @_;
+    my @date_sets = @{$rules->dates_sets};
     return 0 if scalar @date_sets != 2;
     my @openings = @{$rules->openings};
     my @selectors = ();
@@ -343,9 +357,9 @@ sub try_month_exception($$) {
 
 # The future changes will be set when running the script again later.
 sub delete_future_changes($$) {
-    my ($ref_dates, $rules) = @_;
-    my @date_sets = @$ref_dates;
-    my @abort = (0, \@date_sets);
+    my ($context, $rules) = @_;
+    my @date_sets = @{$rules->dates_sets};
+    my $abort = 0;
 
     # Determine min-max range for each set
     my @min = (); # TODO REMOVE, SIMPLIFY
@@ -374,17 +388,17 @@ sub delete_future_changes($$) {
         my @dates = @{$date_sets[$i]};
         # 2 would work too, if try_single_day_exception handles all 2-days-exceptions,
         # but it leads to final rules too long, see two_two_days_exceptions.csv.
-        return @abort if (scalar @dates <= 1);
+        return $abort if (scalar @dates <= 1);
         foreach my $date (@dates) {
-            return @abort if ($date gt $last_min);
+            return $abort if ($date gt $last_min);
         }
     }
 
     # Yes => delete last_index
     splice(@{$rules->openings}, $last_index, 1);
-    splice(@date_sets, $last_index, 1);
-    #print STDERR "REMOVED " . $last_index . "\n";
-    return (1, \@date_sets);
+    splice(@{$rules->dates_sets}, $last_index, 1);
+    print STDERR "Deleted future changes" . $last_index . "\n" if ($context->office_id eq $debug_me);
+    return 1;
 }
 
 # Return 1 if all dates in the $1 array are the $2th "weekday" of the month.
@@ -421,9 +435,9 @@ sub same_weekday_of_month_for_all($$) {
 
 # If the input array always has last-weekday-of-month in [0] and everything else in [1] (or vice-versa)
 # then return [ '[-1]', '' ], but the [-1] has to be generated AFTER...
-sub try_same_weekday_of_month($$$) {
-    my ($ref_dates, $which, $rules) = @_;
-    my @date_sets = @$ref_dates;
+sub try_same_weekday_of_month($$) {
+    my ($which, $rules) = @_;
+    my @date_sets = @{$rules->dates_sets};
     my @selectors;
     my %seen; # keys 0 and 1
     for my $i ( 0 .. $#date_sets ) {
@@ -440,9 +454,10 @@ sub try_same_weekday_of_month($$$) {
 
 # If the input array has [2020-11-07 2020-11-21 ...] and [2020-10-31 2020-11-14 ...]
 # then return [ 'week 1-53/2', 'week 2-53/2' ]
-sub try_alternating_weeks($$) {
-    my ($ref_dates, $rules) = @_;
-    my @date_sets = @$ref_dates;
+sub try_alternating_weeks($) {
+    my ($rules) = @_;
+    my @date_sets = @{$rules->dates_sets};
+    return 0 if (scalar @date_sets == 0);
     my @openings = @{$rules->openings};
     my %found_odd_even = (); # $Even => 0; $Odd => 0
     #my %found_odd_even_prev_year = (); # $Even => 0; $Odd => 0
@@ -522,53 +537,52 @@ sub try_alternating_weeks($$) {
 sub rules_for_day_of_week($$$) {
     my ($context, $ref_dates, $ref_openings) = @_;
 
-    my @temp_date_sets = @$ref_dates;
-    #print day_of_week_name($context->day_of_week) . ": date sets\n"; show_array(@temp_date_sets);
+    #print day_of_week_name($context->day_of_week) . ": date sets\n"; show_array(@$ref_dates);
 
     my %day_exceptions = ();
 
-    my $rules = Rules->new( openings => $ref_openings );
+    my $rules = Rules->new( openings => $ref_openings, dates_sets => $ref_dates );
 
-    if (try_year_split($ref_dates, $rules)) {
+    if (try_year_split($rules)) {
         check_consistency($context, "After try_year_split", $rules);
         return $rules;
     }
 
     my $success = 0;
-    while (scalar @temp_date_sets > 1) {
-        ($success, $ref_dates) = delete_future_changes($ref_dates, $rules);
-        last if (!$success);
-        @temp_date_sets = @$ref_dates;
+
+    if (try_single_day_exception($context, $rules)) {
+        debug_step($context, "After try_single_day_exception", $rules);
     }
 
-    my @date_sets = @$ref_dates;
+    while (scalar @{$rules->dates_sets} > 1) {
+        $success = delete_future_changes($context, $rules);
+        last if (!$success);
+        debug_step($context, "After delete_future_changes", $rules);
+    }
+
+    my @date_sets = @{$rules->dates_sets};
     if (scalar @date_sets == 1) {
         # Stable opening times -> single rule for that day
         push @{$rules->selectors}, "";
         return $rules;
     }
 
-    if (try_single_day_exception($context, $ref_dates, $rules)) {
-        check_consistency($context, "After try_single_day_exception", $rules);
-        return $rules;
-    }
-
-    if (try_year_split($ref_dates, $rules)) {
+    if (try_year_split($rules)) {
         check_consistency($context, "After try_year_split", $rules);
         return $rules;
     }
 
-    if (try_alternating_weeks($ref_dates, $rules)) {
+    if (try_alternating_weeks($rules)) {
         check_consistency($context, "After try_alternating_weeks", $rules);
         return $rules;
     }
 
     for my $which(-1, 1 .. 4) {
         # -1 = last "weekday" of month, 1 = first "weekday" of month...
-        return $rules if (try_same_weekday_of_month($ref_dates, $which, $rules));
+        return $rules if (try_same_weekday_of_month($which, $rules));
     }
 
-    if (try_month_exception($ref_dates, $rules)) {
+    if (try_month_exception($rules)) {
         check_consistency($context, "After try_month_exception", $rules);
         return $rules;
     }
