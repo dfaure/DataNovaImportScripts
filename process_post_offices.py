@@ -52,7 +52,7 @@ def old_special_days_removed(old_opening_hours, new_opening_hours):
     # new: Mo-Fr 09:00-12:00,14:00-17:00; Sa 09:00-12:00; PH off; 2021 Jan 05 09:00-12:00
     if 'ERROR' in old_opening_hours or 'ERROR' in new_opening_hours:
         return False;
-    #print(old_opening_hours + '\nnew=' + new_opening_hours)
+    #print('old=' + old_opening_hours + '\nnew=' + new_opening_hours)
     pos_old = old_opening_hours.find('PH off')
     pos_new = new_opening_hours.find('PH off')
     if pos_old < 0 or pos_new < 0 or pos_old != pos_new:
@@ -79,6 +79,8 @@ def old_special_days_removed(old_opening_hours, new_opening_hours):
                 if colon == 2:
                     continue
                 removed = removed[:colon-3]
+            elif removed.endswith('off'):
+                removed = removed[:-3]
             if ':' in removed: # shouldn't happen anymore
                 print("COMPLICATED " + removed)
                 return False
