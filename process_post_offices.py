@@ -4,6 +4,7 @@ import xml.etree.ElementTree as ET
 import dateutil.parser as dateparser
 import datetime
 import os
+import sys
 
 xmlfile = open("data/osm_post_offices.xml", "r")
 response = xmlfile.read()
@@ -64,6 +65,15 @@ def old_special_days_removed(old_opening_hours, new_opening_hours):
         return False;
     old_right = old_opening_hours[pos_old+8:]
     new_right = new_opening_hours[pos_new+8:]
+    # skip what's common between the two, e.g.  2021 Jan 13 13:30-16:30;  before days off
+    while old_right.find('; ') == new_right.find('; '):
+        semicolon = old_right.find('; ')
+        #print('COMMON? ' + old_right[:semicolon] + ' -vs- ' + new_right[:semicolon])
+        if old_right[:semicolon] == new_right[:semicolon]:
+            old_right = old_right[semicolon+2:]
+            new_right = new_right[semicolon+2:]
+        else:
+            break
     if not old_right.endswith(new_right):
         #print(old_right + ' does not end with ' + new_right)
         return False
@@ -82,7 +92,7 @@ def old_special_days_removed(old_opening_hours, new_opening_hours):
             elif removed.endswith('off'):
                 removed = removed[:-3]
             if ':' in removed: # shouldn't happen anymore
-                print("COMPLICATED " + removed)
+                #print("COMPLICATED " + removed)
                 return False
             if removed != '':
                 try:
@@ -92,6 +102,11 @@ def old_special_days_removed(old_opening_hours, new_opening_hours):
                 if date > now: # A change for a date in the future? Upload it.
                     return False
     return True
+
+assert old_special_days_removed('Mo-Fr 09:00-12:00,14:00-17:00; Sa 09:00-12:00; PH off; 2020 Dec 31,2021 Jan 05 09:00-12:00',
+                                'Mo-Fr 09:00-12:00,14:00-17:00; Sa 09:00-12:00; PH off; 2021 Jan 05 09:00-12:00')
+assert old_special_days_removed('Mo-We,Fr 09:00-12:00,13:30-16:30; Th 10:00-12:00,13:30-16:30; Sa 09:00-12:00; PH off; 2021 Jan 13 13:30-16:30; 2021 Jan 04,2021 Jan 05,2021 Jan 06,2021 Jan 07,2021 Jan 08,2021 Jan 09,2021 Jan 11,2021 Jan 12 off',
+                                'Mo-We,Fr 09:00-12:00,13:30-16:30; Th 10:00-12:00,13:30-16:30; Sa 09:00-12:00; PH off; 2021 Jan 13 13:30-16:30; 2021 Jan 09,2021 Jan 11,2021 Jan 12 off')
 
 # parse XML
 root = ET.fromstring(response)
