@@ -815,6 +815,10 @@ sub main() {
 
         $full_list =~ s/; $//;
 
+        if ($full_list eq 'PH off') {
+            $full_list = 'closed';
+        }
+
         if (length($full_list) > 255) {
             print STDERR "ERROR: rule too long (" . length($full_list) . ") $office_id|$office_name|$full_list\n";
         } else {
