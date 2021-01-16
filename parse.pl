@@ -150,6 +150,42 @@ sub get_week_number($) {
     return $dt->week;
 }
 
+# see unittest just below
+sub generate_date_list($) {
+    my ($ref_dates) = @_;
+    my $ret = "";
+    my @dates = @{$ref_dates};
+    push @dates, 'LAST'; # unused, just to flush the last date
+    my $curYearMonth;
+    my $curDay;
+    my $startDay;
+    foreach my $date (sort @dates) {
+        my $yearMonth = ($date =~ /^([0-9]{4}-[0-9]+)-/) ? $1 : undef;
+        my $day = get_day($date);
+        if (defined $curYearMonth and defined $yearMonth and $curYearMonth eq $yearMonth and $day == $curDay+1) {
+            $curDay = $day;
+        } else {
+            if (defined $curYearMonth) {
+                if ($startDay < $curDay) {
+                    $ret .= full_day_name("$curYearMonth-$startDay") . "-$curDay,";
+                } else {
+                    $ret .= full_day_name("$curYearMonth-$curDay") . ",";
+                }
+            }
+            $curYearMonth = $yearMonth;
+            $curDay = $day;
+            $startDay = $day;
+        }
+    }
+    $ret =~ s/,$//;
+    return $ret;
+}
+
+# unittest
+my @test_array = ("2021-01-18", "2021-01-19", "2021-01-20", "2021-01-25");
+die  generate_date_list(\@test_array) unless generate_date_list(\@test_array) eq "2021 Jan 18-20,2021 Jan 25";
+
+
 # https://perldoc.perl.org/Class::Struct
 use Class::Struct Rules => {
     dates_sets => '@',
@@ -772,19 +808,12 @@ sub main() {
         if (defined $day_exceptions{$office_id}) {
             my %local_day_exceptions = %{$day_exceptions{$office_id}};
             foreach my $opening (sort(keys %local_day_exceptions)) {
-                my @days = @{$local_day_exceptions{$opening}};
-                foreach my $day (sort @days) {
-                    $full_list .= full_day_name($day) . ",";
-                }
-                $full_list =~ s/,$/ $opening; /; # Remove last comma, add opening hours
+                my $date_list = generate_date_list($local_day_exceptions{$opening});
+                $full_list .= "$date_list $opening; ";
             }
         }
 
         $full_list =~ s/; $//;
-
-        # Try hard to fit in under 255 characters. Someone told me. Not mentioned in the spec though.
-        $full_list =~ s/; /\;/g if (length($full_list) > 255);
-        $full_list =~ s/;PH off//g if (length($full_list) > 255); # Oh well...
 
         if (length($full_list) > 255) {
             print STDERR "ERROR: rule too long (" . length($full_list) . ") $office_id|$office_name|$full_list\n";
