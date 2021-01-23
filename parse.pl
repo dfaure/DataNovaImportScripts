@@ -43,7 +43,7 @@ sub month_name($) {
 
 
 # Turn "1235" into "Mo-We,Fr"
-sub abbrevs($) {
+sub abbrevs_with_intervals($) {
     my ($daynums) = @_; # ex: 1235, 8 for PH
     my $ret = "";
     my @digits = split(//, $daynums);
@@ -65,6 +65,18 @@ sub abbrevs($) {
             $cur = $daynum;
             $start = $daynum;
         }
+    }
+    $ret =~ s/,$//;
+    return $ret;
+}
+
+# Turn "12","[3]" into "Mo[3],Tu[3]"
+sub abbrevs_with_repeated_rule($$) {
+    my ($daynums, $rule) = @_; # ex: 1235, 8 for PH
+    my $ret = "";
+    my @digits = split(//, $daynums);
+    foreach my $daynum (@digits) {
+        $ret .= day_of_week_name($daynum) . "$rule,";
     }
     $ret =~ s/,$//;
     return $ret;
@@ -214,10 +226,12 @@ sub debug_step($$$) {
         print "$func\n";
         print "  Selectors:\n"; show_array(@selectors);
         print "  Openings:\n"; show_array(@openings);
-        print "  Day exceptions:\n";
         my %day_exceptions = %{$rules->day_exceptions};
-        foreach my $key (keys %day_exceptions) {
-            print "    $key: " . $day_exceptions{$key} . "\n";
+        if (scalar %day_exceptions) {
+            print "  Day exceptions:\n";
+            foreach my $key (keys %day_exceptions) {
+                print "    $key: " . $day_exceptions{$key} . "\n";
+            }
         }
     }
 }
@@ -440,8 +454,8 @@ sub delete_future_changes($$) {
 # Return 1 if all dates in the $1 array are the $2th "weekday" of the month.
 # $2 is 1 for first "weekday" of the month (e.g. first saturday)
 # $2 is -1 for last "weekday" of the month (e.g. last saturday)
-sub same_weekday_of_month_for_all($$) {
-    my ($ref_dates, $which) = @_;
+sub same_weekday_of_month_for_all($$$) {
+    my ($context, $ref_dates, $which) = @_;
     my @dates = @$ref_dates;
     return 0 if scalar @dates < 3; # Not enough
     my $current_month;
@@ -450,11 +464,12 @@ sub same_weekday_of_month_for_all($$) {
     } else {
         # Do we expect to see the Nth "weekday" for this month, or is it in the past already?
         $current_month = $file_dt->weekday_of_month <= $which ? previous_month($file_dt->month) : $file_dt->month;
+        say " $which: current_month: $current_month because file is from $file_dt" if ($context->office_id eq $debug_me);
     }
     for my $date (@dates) {
         my $dt = fast_parse_datetime($date);
         # last week of the month?
-        #say "  $which: $date has weekday_of_month: " . $dt->weekday_of_month;
+        say "  $which: $date has weekday_of_month: " . $dt->weekday_of_month if ($context->office_id eq $debug_me);
         if (($which == -1 && $dt->month != $dt->clone()->add(days => 7)->month)
           || ($which > 0 && $dt->weekday_of_month == $which)) {
             if (next_month($current_month) == $dt->month) {
@@ -471,15 +486,15 @@ sub same_weekday_of_month_for_all($$) {
 
 # If the input array always has last-weekday-of-month in [0] and everything else in [1] (or vice-versa)
 # then return [ '[-1]', '' ], but the [-1] has to be generated AFTER...
-sub try_same_weekday_of_month($$) {
-    my ($which, $rules) = @_;
+sub try_same_weekday_of_month($$$) {
+    my ($context, $which, $rules) = @_;
     my @date_sets = @{$rules->dates_sets};
     my @selectors;
     my %seen; # keys 0 and 1
     for my $i ( 0 .. $#date_sets ) {
         my $all_same_week = 1;
         my @dates = @{$date_sets[$i]};
-        my $yes = same_weekday_of_month_for_all(\@dates, $which);
+        my $yes = same_weekday_of_month_for_all($context, \@dates, $which);
         return 0 if defined $seen{$yes};
         $seen{$yes} = 1;
         push @selectors, $yes ? "[$which]" : "";
@@ -615,7 +630,7 @@ sub rules_for_day_of_week($$$) {
 
     for my $which(-1, 1 .. 4) {
         # -1 = last "weekday" of month, 1 = first "weekday" of month...
-        return $rules if (try_same_weekday_of_month($which, $rules));
+        return $rules if (try_same_weekday_of_month($context, $which, $rules));
     }
 
     if (try_month_exception($rules)) {
@@ -635,9 +650,12 @@ sub write_rule($$$) {
         return "$rule $opening; ";
     }
     my $str = "";
-    $str = "$rule " if ($rule !~ /^\[/); # year or week number
-    $str .= abbrevs($daynums);
-    $str .= "$rule" if ($rule =~ /^\[/); # e.g. [-1]
+    if ($rule =~ /^\[/) { # e.g. [-1]
+        $str = abbrevs_with_repeated_rule($daynums, $rule);
+    } else {
+        $str = "$rule "; # year or week number
+        $str .= abbrevs_with_intervals($daynums);
+    }
     $str .= " $opening; ";
     return $str;
 }
@@ -778,7 +796,7 @@ sub main() {
                         if ($day_of_week == 8) {
                             $full_list .= "PH $opening; ";
                         } elsif ($opening ne 'off') { # off is default anyway (except for PH)
-                            $full_list .= abbrevs($daynums) . " $opening; ";
+                            $full_list .= abbrevs_with_intervals($daynums) . " $opening; ";
                         }
                     } else {
                         my @splitted = split /\|/, $selector;

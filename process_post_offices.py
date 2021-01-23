@@ -5,6 +5,7 @@ import dateutil.parser as dateparser
 import datetime
 import os
 import sys
+from PyKOpeningHours.PyKOpeningHours import OpeningHours, Error
 
 xmlfile = open("data/osm_post_offices.xml", "r")
 response = xmlfile.read()
@@ -19,8 +20,20 @@ with open('data/new_opening_hours') as f:
         if len(data) < 3:
             print("ERROR: invalid line " + line)
         else:
-            hours_dict[data[0]] = data[2]
             office_names[data[0]] = data[1]
+            hours = data[2]
+            hours_dict[data[0]] = hours
+            if not 'ERROR' in hours:
+                parser = OpeningHours()
+                parser.setExpression(hours)
+                if parser.error() == Error.SyntaxError or parser.error() == Error.IncompatibleMode:
+                    print("ERROR: invalid opening hours for {0}: {1}".format(data[1], hours))
+                    sys.exit(1)
+                else:
+                    new_oh = parser.normalizedExpression()
+                    if new_oh != hours:
+                        print("WARNING: {0}: KOpeningHours normalized {1} to {2}".format(data[1], hours, new_oh))
+                        sys.exit(1)
 
 # parse opening hours previously uploaded by our scripts
 saved_hours_dict = {}
