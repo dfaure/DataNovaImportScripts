@@ -107,12 +107,21 @@ def old_special_days_removed(old_opening_hours, new_opening_hours):
             if ':' in removed: # shouldn't happen anymore
                 #print("COMPLICATED " + removed)
                 return False
+            dash = removed.find('-') # e.g. 2021 Feb 08-12
+            if dash > -1:
+                #print("looking at " + removed[dash-2:dash])
+                if removed[dash-2:dash].isdigit():
+                    removed = removed[:dash-2] + removed[dash+1:]
+                    #print("range removed, now " + removed)
+
             if removed != '':
                 try:
                     date = dateparser.parse(removed)
                 except:
+                    #print("dateparse parse error on " + removed)
                     return False
                 if date > now: # A change for a date in the future? Upload it.
+                    #print("FUTURE");
                     return False
     return True
 
@@ -120,6 +129,8 @@ assert old_special_days_removed('Mo-Fr 09:00-12:00,14:00-17:00; Sa 09:00-12:00; 
                                 'Mo-Fr 09:00-12:00,14:00-17:00; Sa 09:00-12:00; PH off; 2021 Jan 05 09:00-12:00')
 assert old_special_days_removed('Mo-We,Fr 09:00-12:00,13:30-16:30; Th 10:00-12:00,13:30-16:30; Sa 09:00-12:00; PH off; 2021 Jan 13 13:30-16:30; 2021 Jan 04,2021 Jan 05,2021 Jan 06,2021 Jan 07,2021 Jan 08,2021 Jan 09,2021 Jan 11,2021 Jan 12 off',
                                 'Mo-We,Fr 09:00-12:00,13:30-16:30; Th 10:00-12:00,13:30-16:30; Sa 09:00-12:00; PH off; 2021 Jan 13 13:30-16:30; 2021 Jan 09,2021 Jan 11,2021 Jan 12 off')
+assert old_special_days_removed('Mo-Fr 08:50-11:50; PH off; 2021 Feb 08-12 off',
+                                'Mo-Fr 08:50-11:50; PH off')
 
 # parse XML
 root = ET.fromstring(response)
