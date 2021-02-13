@@ -327,13 +327,15 @@ sub try_single_day_exception($$) {
     # Special case for public holidays
     # We want a default "PH: off" rule, if at least one PH is off.
     if ($context->day_of_week == 8) {
+        if ($context->office_id eq $debug_me) {
+            print "PH day exceptions:\n";
+            foreach my $key (keys %day_exceptions) {
+                print "    $key: " . $day_exceptions{$key} . "\n";
+            }
+        }
+
         if (defined $day_exceptions{'off'}) {
             delete($day_exceptions{'off'});
-        } else {
-            # Which one should we pick as default rule?
-            # Any one would do, but we need reliable results...
-            $rules->openings(['ERROR']); # assign
-            push @openings, 'ERROR';
         }
     }
 
@@ -343,11 +345,11 @@ sub try_single_day_exception($$) {
             if ($context->day_of_week == 8 and $off_index == $del_idx) {
                 print STDERR "NOT deleting at index $del_idx\n";
             } else {
-                print STDERR "Deleting at index $del_idx\n";
+                print STDERR "single day exception: deleting openings and date_sets at index $del_idx\n";
             }
         }
-
         next if ($context->day_of_week == 8 and $off_index == $del_idx);
+
         splice(@openings, $del_idx, 1);
         splice(@date_sets, $del_idx, 1);
     }

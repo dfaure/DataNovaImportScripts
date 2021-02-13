@@ -5,7 +5,7 @@ if [ "$1" = "-updateosm" ]; then
 fi
 
 infile=data/laposte_ouvertur.csv
-if [ ! -f "$infile" -o -n "`find $infile -mtime +5  2>/dev/null`" ]; then
+if [ ! -f "$infile" -o -n "`find $infile -mtime +4  2>/dev/null`" ]; then
     mkdir -p data
     echo "Need to refetch the datanova data... OK?"
     read confirmation
