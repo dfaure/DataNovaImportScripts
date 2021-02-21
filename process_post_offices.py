@@ -157,7 +157,7 @@ for child in root:
                     old_opening_hours = old_opening_hours_tag.get('v')
                     old_vs_new = ref + ":   OSM " + old_opening_hours + "\n" + ref + ":   now " + new_opening_hours
                     if old_opening_hours + "; PH off" == new_opening_hours:
-                        print(ref + ": missing PH off, adding")
+                        print(ref + ": missing PH off, adding, see " + deepurl)
                         old_opening_hours_tag.set('v', new_opening_hours)
                         child.set('X-reason', 'ph_off_') # for filter_changes.py
                         changed = True
