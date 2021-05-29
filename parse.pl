@@ -749,8 +749,13 @@ sub main() {
             @all_openings = @{$rules->openings};
             #print STDERR "$office_name: $dow_name " . (scalar @selectors) . " selectors " . (scalar @all_openings) . " openings\n";
             if ((scalar @selectors) == 0) {
-                print STDERR "ERROR: $office_id:$office_name: $dow_name has no rules at all. @all_openings\n";
-                die; # Adjust when we'll get data sets without any PH
+                if ($day_of_week eq 8) {
+                    push @selectors, "";
+                    push @all_openings, "off"; # assume off on PH, but we really don't know.
+                } else {
+                    print STDERR "ERROR: $office_id:$office_name: $dow_name has no rules at all. @all_openings\n";
+                    die; # Adjust when we'll get data sets without any PH
+                }
             }
             check_consistency($context, "Return value from rules_for_day_of_week", $rules);
             if ($selectors[0] eq "ERROR-0") {
