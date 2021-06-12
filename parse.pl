@@ -816,8 +816,11 @@ sub main() {
                             $specific_list .= write_rule($single_selector, $daynums, $opening);
                         }
                     }
-                    # The first day of the week in a range like Mo-Fr prints it all, except PH
+                    # The first day of the week in a range like Mo-Fr prints it all
                     $daynums =~ s/[1-7]*//g;
+                    if ($opening ne 'off') {
+                        $daynums =~ s/8*//g; # e.g. for Mo-Sa,PH 08:00-21:00, PH is done, remove it
+                    }
                     if ($daynums eq '') {
                         undef $days_for{$selector}{$opening};
                     } else {
