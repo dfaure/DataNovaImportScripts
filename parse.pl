@@ -303,53 +303,57 @@ sub try_single_day_exception($$) {
     my @openings = @{$rules->openings};
     my @deleted_openings = ();
     my $two_days = 0;
-    my $off_index = -1;
     my %day_exceptions = ();
+
+    # For this code to be (more) deterministic, we score every date_set and then pick the 1 or 2 highest ones
+    #   Single day = 10
+    #   Two days = 5
+    #   PH off = -2 (we prefer PH <open> as the exception)
+    # and sort equal scores by alphabetical order of opening
+    my %score = ();
     for my $i ( 0 .. $#date_sets ) {
+        $score{$i} = 0;
         my @dates = @{$date_sets[$i]};
         my $opening = $openings[$i];
-        #print "" . (scalar @dates) . " dates\n";
         if (scalar @dates == 1) {
-            die if defined $day_exceptions{$opening}; # aren't openings unique in date_sets? If not, the next line overwrites...
-            $day_exceptions{$opening} = $dates[0];
-            unshift @deleted_openings, $i; # unshift is push_front, so we reverse the order, for the delete
-            $off_index = $i if ($opening eq 'off');
+            $score{$i} = 10;
         } elsif (scalar @dates == 2) {
-            # An exception for two days. Do this only once to avoid too long rules.
-            return 0 if ($two_days > 0);
-            $day_exceptions{$opening} = $dates[0] . ',' . $dates[1];
-            unshift @deleted_openings, $i;
-            $two_days = 1;
-            $off_index = $i if ($opening eq 'off');
+            $score{$i} = 5;
         }
+        if ($context->day_of_week == 8 and $opening eq 'off') {
+            $score{$i} -= 2;
+        }
+        #print "" . (scalar @dates) . " dates : score " . $score{$i} . "\n";
     }
 
-    # Special case for public holidays
-    # We want a default "PH: off" rule, if at least one PH is off.
-    if ($context->day_of_week == 8) {
-        if ($context->office_id eq $debug_me) {
-            print "PH day exceptions:\n";
-            foreach my $key (keys %day_exceptions) {
-                print "    $key: " . $day_exceptions{$key} . "\n";
+    my $num_removals = 0;
+    foreach my $i (sort {
+            $score{$b} <=> $score{$a} or $openings[$a] cmp $openings[$b]
+        } keys %score) {
+        my @dates = @{$date_sets[$i]};
+        if (scalar @dates == 1 or scalar @dates == 2) {
+            my $opening = $openings[$i];
+            #print "$i: " . (scalar @dates) . " dates\n";
+            if (scalar @dates == 1) {
+                die if defined $day_exceptions{$opening}; # aren't openings unique in date_sets? If not, the next line overwrites...
+                $day_exceptions{$opening} = $dates[0];
+            } elsif (scalar @dates == 2) {
+                # An exception for two days. Do this only once to avoid too long rules.
+                return 0 if ($two_days > 0);
+                $day_exceptions{$opening} = $dates[0] . ',' . $dates[1];
+                $two_days = 1;
             }
-        }
-
-        if (defined $day_exceptions{'off'}) {
-            delete($day_exceptions{'off'});
+            push @deleted_openings, $i;
+            ++$num_removals;
+            last if $num_removals == (scalar @date_sets) - 1;
         }
     }
 
     $rules->day_exceptions(\%day_exceptions); # assign
-    foreach my $del_idx (@deleted_openings) {
+    foreach my $del_idx (reverse sort @deleted_openings) {
         if ($context->office_id eq $debug_me) {
-            if ($context->day_of_week == 8 and $off_index == $del_idx) {
-                print STDERR "NOT deleting at index $del_idx\n";
-            } else {
-                print STDERR "single day exception: deleting openings and date_sets at index $del_idx\n";
-            }
+            print STDERR "single day exception: deleting openings and date_sets at index $del_idx\n";
         }
-        next if ($context->day_of_week == 8 and $off_index == $del_idx);
-
         splice(@openings, $del_idx, 1);
         splice(@date_sets, $del_idx, 1);
     }
@@ -507,10 +511,11 @@ sub try_same_weekday_of_month($$$) {
 
 # If the input array has [2020-11-07 2020-11-21 ...] and [2020-10-31 2020-11-14 ...]
 # then return [ 'week 1-53/2', 'week 2-53/2' ]
-sub try_alternating_weeks($) {
-    my ($rules) = @_;
+sub try_alternating_weeks($$) {
+    my ($context, $rules) = @_;
     my @date_sets = @{$rules->dates_sets};
     return 0 if (scalar @date_sets == 0);
+    return 0 if ($context->day_of_week == 8);
     my @openings = @{$rules->openings};
     my %found_odd_even = (); # $Even => 0; $Odd => 0
     #my %found_odd_even_prev_year = (); # $Even => 0; $Odd => 0
@@ -583,7 +588,7 @@ sub try_alternating_weeks($) {
 
 # Main function for the core logic of this script.
 # Called for one day of week at a time
-# $day_of_week : 1 for Monday, 2 for Tuesday etc. -- mostly for debug output
+# $context: contains day_of_week etc.
 # @date_sets : N sets of dates that have the same opening hours
 # @openings : those N sets of openings (not much used here)
 # Returns N sets of OSM rules and the corresponding opening hours, plus M single-day exceptions
@@ -625,7 +630,7 @@ sub rules_for_day_of_week($$$) {
         return $rules;
     }
 
-    if (try_alternating_weeks($rules)) {
+    if (try_alternating_weeks($context, $rules)) {
         check_consistency($context, "After try_alternating_weeks", $rules);
         return $rules;
     }
@@ -712,6 +717,7 @@ sub main() {
         $opening = "off" if $opening =~ /^FERME$/;
         push @{$office_data{$office_id}{$day_of_week}{$opening}}, $date;
     }
+    die unless defined($file_start_date);
     $file_dt = fast_parse_datetime($file_start_date);
     #print STDERR "Parsed $line_nr lines\n";
 
