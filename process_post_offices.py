@@ -66,7 +66,7 @@ def old_special_days_removed(old_opening_hours, new_opening_hours):
     # new: Mo-Fr 09:00-12:00,14:00-17:00; Sa 09:00-12:00; PH off; 2021 Jan 05 09:00-12:00
     if 'ERROR' in old_opening_hours or 'ERROR' in new_opening_hours:
         return False;
-    #print('old=' + old_opening_hours + '\nnew=' + new_opening_hours)
+    #print('STARTING old=' + old_opening_hours + '\nnew=' + new_opening_hours)
     pos_old = old_opening_hours.find('PH off')
     pos_new = new_opening_hours.find('PH off')
     if pos_old < 0 or pos_new < 0 or pos_old != pos_new:
@@ -78,9 +78,12 @@ def old_special_days_removed(old_opening_hours, new_opening_hours):
         return False;
     old_right = old_opening_hours[pos_old+8:]
     new_right = new_opening_hours[pos_new+8:]
+    #print(' comparing right: ' + old_right + ' -vs- ' + new_right)
     # skip what's common between the two, e.g.  2021 Jan 13 13:30-16:30;  before days off
     while old_right.find('; ') == new_right.find('; '):
         semicolon = old_right.find('; ')
+        if semicolon == -1:
+            break
         #print('COMMON? ' + old_right[:semicolon] + ' -vs- ' + new_right[:semicolon])
         if old_right[:semicolon] == new_right[:semicolon]:
             old_right = old_right[semicolon+2:]
@@ -105,7 +108,7 @@ def old_special_days_removed(old_opening_hours, new_opening_hours):
             elif removed.endswith('off'):
                 removed = removed[:-3]
             if ':' in removed: # shouldn't happen anymore
-                #print("COMPLICATED " + removed)
+                print("COMPLICATED " + removed)
                 return False
             dash = removed.find('-') # e.g. 2021 Feb 08-12
             if dash > -1:
