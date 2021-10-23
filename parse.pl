@@ -106,12 +106,13 @@ sub get_day_of_week($) {
     my $dt = fast_parse_datetime($date);
     my $day_of_week = $dt->day_of_week; # 1-7 (Monday is 1)
     # Jours fériés
+    # We could use https://metacpan.org/pod/DateTime::Event::Easter but opensuse doesn't package it...
     if ($date =~ /-01-01$/ ||
-        $date eq '2021-04-05' || # paques (easter)
+        $date eq '2022-04-18' || # paques (easter), see https://en.wikipedia.org/wiki/Easter_Monday
         $date =~ /-05-01$/ ||
         $date =~ /-05-08$/ ||
-        $date eq '2021-05-13' || # ascension
-        $date eq '2021-05-24' || # pentecote
+        $date eq '2022-05-26' || # ascension, cf https://fr.wikipedia.org/wiki/Ascension_(f%C3%AAte)
+        $date eq '2022-06-22' || # pentecote, add one to the date on https://fr.wikipedia.org/wiki/Pentec%C3%B4te
         $date =~ /-07-14$/ ||
         $date =~ /-08-15$/ ||
         $date =~ /-11-01$/ ||
@@ -119,7 +120,7 @@ sub get_day_of_week($) {
         $date =~ /-12-25$/) {
         $day_of_week = 8;
     }
-    die if get_year($date) == 2022; # TODO update list of public holidays above
+    die "new year, please update the list of public holidays" if get_year($date) == 2023;
 
     $cache{$date} = $day_of_week;
 
