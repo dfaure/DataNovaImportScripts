@@ -77,7 +77,8 @@ class CurrentOutput:
 
     # area = (2*pi)*R^2 |sin(lat1)-sin(lat2)| |lon1-lon2| / 360
     # http://mathforum.org/library/drmath/view/63767.html
-    def area(self):
+    # For a more precise version, consider https://stackoverflow.com/a/61176787
+    def area(self): # in km^2
         size = math.pi * 2 * 6357 * 6357 * abs(math.sin(math.radians(self.max_lat)) - math.sin(math.radians(self.min_lat))) * abs(self.max_lon - self.min_lon) / 360
         #print('  lat {} - {}, lon {} - {} => area {}'.format(self.min_lat, self.max_lat, self.min_lon, self.max_lon, size))
         return size
@@ -104,7 +105,7 @@ for child in root:
                 office_name = office_names[ref]
 
             current_out.enlarge_area(child, office_name)
-            if current_out.area() > 50000: # km^2
+            if current_out.area() > 5000: # km^2
                 current_out.write_and_close(reason)
                 #print('starting new chunk')
                 current_out_dict[reason] = CurrentOutput(root, reason)
