@@ -140,9 +140,21 @@ sub get_day($) {
 }
 
 # Return e.g. "2020 Dec 24" for 2020-12-24. Could be done faster.
-sub full_day_name($) {
-    my ($date) = @_;
-    return get_year($date) . ' ' . month_name(get_month($date)) . ' ' . get_day($date);
+# Skip the year+month if equal to $curYearMonth
+# Skip the year if unchanged
+sub full_day_name($$) {
+    my ($date, $curYearMonth) = @_;
+    my $year = get_year($date);
+    my $month = get_month($date);
+    my $monthStr = month_name(get_month($date));
+    my $day = get_day($date);
+    my $monthDay = $monthStr . ' ' . $day;
+    if (defined $curYearMonth) {
+        return $day if ("$year-$month" eq $curYearMonth);
+        my $curYear = get_year($curYearMonth);
+        return $year eq $curYear ? $monthDay : ($year . ' ' . $monthDay);
+    }
+    return $year . ' ' . $monthDay;
 }
 
 # Previous month, 1-based.  previous_month(1) == 12
@@ -169,10 +181,12 @@ sub generate_date_list($) {
     my $ret = "";
     my @dates = @{$ref_dates};
     push @dates, 'LAST'; # unused, just to flush the last date
+    my $lastWrittenYearMonth;
     my $curYearMonth;
     my $curDay;
     my $startDay;
     foreach my $date (sort @dates) {
+        my $year = get_year($date);
         my $yearMonth = ($date =~ /^([0-9]{4}-[0-9]+)-/) ? $1 : undef;
         my $day = get_day($date);
         if (defined $curYearMonth and defined $yearMonth and $curYearMonth eq $yearMonth and $day == $curDay+1) {
@@ -180,10 +194,11 @@ sub generate_date_list($) {
         } else {
             if (defined $curYearMonth) {
                 if ($startDay < $curDay) {
-                    $ret .= full_day_name("$curYearMonth-$startDay") . "-$curDay,";
+                    $ret .= full_day_name("$curYearMonth-$startDay", $lastWrittenYearMonth) . "-$curDay,";
                 } else {
-                    $ret .= full_day_name("$curYearMonth-$curDay") . ",";
+                    $ret .= full_day_name("$curYearMonth-$curDay", $lastWrittenYearMonth) . ",";
                 }
+                $lastWrittenYearMonth = $curYearMonth;
             }
             $curYearMonth = $yearMonth;
             $curDay = $day;
@@ -195,8 +210,10 @@ sub generate_date_list($) {
 }
 
 # unittest
-my @test_array = ("2021-01-18", "2021-01-19", "2021-01-20", "2021-01-25");
-die  generate_date_list(\@test_array) unless generate_date_list(\@test_array) eq "2021 Jan 18-20,2021 Jan 25";
+my @test_array = ("2021-01-18", "2021-01-19", "2021-01-20", "2021-01-25", "2021-02-10");
+die generate_date_list(\@test_array) unless generate_date_list(\@test_array) eq "2021 Jan 18-20,25,Feb 10";
+@test_array = ("2021-01-18", "2021-01-19", "2022-02-25");
+die generate_date_list(\@test_array) unless generate_date_list(\@test_array) eq "2021 Jan 18-19,2022 Feb 25";
 
 
 # https://perldoc.perl.org/Class::Struct
