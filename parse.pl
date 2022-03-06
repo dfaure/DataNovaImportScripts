@@ -732,7 +732,7 @@ sub main() {
         }
         die "unsupported: see line $line_nr" if ($row->[6] ne '');
         my $day_of_week = get_day_of_week($date);
-        $opening = "off" if $opening =~ /^FERME$/;
+        $opening = "off" if $opening =~ /^FERME$/ or $opening eq '';
         push @{$office_data{$office_id}{$day_of_week}{$opening}}, $date;
     }
     die unless defined($file_start_date);
