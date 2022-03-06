@@ -1,5 +1,8 @@
 #!/bin/bash
 
+echo "Running regression tests..."
+regression_tests/run_all.sh > /dev/null || exit 1
+
 if [ "$1" = "-updateosm" ]; then
     updateosm=1
 fi
