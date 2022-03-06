@@ -107,10 +107,14 @@ sub get_day_of_week($) {
     my $day_of_week = $dt->day_of_week; # 1-7 (Monday is 1)
     # Jours fériés
     # We could use https://metacpan.org/pod/DateTime::Event::Easter but opensuse doesn't package it...
+    # NOTE: keep the old dates, they are used by the regression tests
     if ($date =~ /-01-01$/ ||
+        $date eq '2021-04-05' || # paques (easter)
         $date eq '2022-04-18' || # paques (easter), see https://en.wikipedia.org/wiki/Easter_Monday
         $date =~ /-05-01$/ ||
         $date =~ /-05-08$/ ||
+        $date eq '2021-05-13' || # ascension
+        $date eq '2021-05-24' || # pentecote
         $date eq '2022-05-26' || # ascension, cf https://fr.wikipedia.org/wiki/Ascension_(f%C3%AAte)
         $date eq '2022-06-22' || # pentecote, add one to the date on https://fr.wikipedia.org/wiki/Pentec%C3%B4te
         $date =~ /-07-14$/ ||
