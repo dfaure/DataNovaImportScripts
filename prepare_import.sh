@@ -3,6 +3,11 @@
 echo "Running regression tests..."
 regression_tests/run_all.sh > /dev/null || exit 1
 
+if [ -n "$KEEPOLD" ]; then
+    echo "ERROR: KEEPOLD=1 is for the unittests, don't run the real script with it"
+    exit 1
+fi
+
 if [ "$1" = "-updateosm" ]; then
     updateosm=1
 fi
