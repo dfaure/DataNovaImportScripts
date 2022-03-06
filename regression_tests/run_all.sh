@@ -9,6 +9,6 @@ for name in *.csv; do
     ../parse.pl $base.csv > $base.out || exit 1
     # Update baseline:
     #cp $base.out $base.expected
-    diff -u $base.expected $base.out
+    diff -u $base.expected $base.out || exit 2
     rm -f $base.out
 done
