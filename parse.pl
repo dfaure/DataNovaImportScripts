@@ -147,7 +147,7 @@ sub get_day($) {
 }
 
 # Return e.g. "2020 Dec 24" for 2020-12-24. Could be done faster.
-# Skip the year+month if equal to $curYearMonth
+# Skip the year+month if equal to $curYearMonth -- TODO REMOVE UNUSED ARG
 # Skip the year if unchanged
 sub full_day_name($$) {
     my ($date, $curYearMonth) = @_;
@@ -156,11 +156,6 @@ sub full_day_name($$) {
     my $monthStr = month_name(get_month($date));
     my $day = get_day($date);
     my $monthDay = $monthStr . ' ' . $day;
-    if (defined $curYearMonth) {
-        return $day if ("$year-$month" eq $curYearMonth);
-        my $curYear = get_year($curYearMonth);
-        return $year eq $curYear ? $monthDay : ($year . ' ' . $monthDay);
-    }
     return $year . ' ' . $monthDay;
 }
 
@@ -218,7 +213,7 @@ sub generate_date_list($) {
 
 # unittest
 my @test_array = ("2021-01-18", "2021-01-19", "2021-01-20", "2021-01-25", "2021-02-10");
-die generate_date_list(\@test_array) unless generate_date_list(\@test_array) eq "2021 Jan 18-20,25,Feb 10";
+die generate_date_list(\@test_array) unless generate_date_list(\@test_array) eq "2021 Jan 18-20,2021 Jan 25,2021 Feb 10";
 @test_array = ("2021-01-18", "2021-01-19", "2022-02-25");
 die generate_date_list(\@test_array) unless generate_date_list(\@test_array) eq "2021 Jan 18-19,2022 Feb 25";
 

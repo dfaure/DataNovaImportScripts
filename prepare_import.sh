@@ -103,4 +103,4 @@ echo "$actions objects modified in total" >> $stats
 ./filter_changes.py
 
 echo 'Check data/process_post_offices.log and run ./upload_all.sh'
-echo 'Then remember to commit'
+echo 'Then remember to commit the new opening hours to git'
