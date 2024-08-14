@@ -84,6 +84,13 @@ sub abbrevs_with_repeated_rule($$) {
 
 sub fast_parse_datetime($) {
     my ($date) = @_;
+    # New format, it's actually day/month/year now
+    if ($date =~ /^([0-9]+)\/([0-9]+)\/([0-9]{4})$/) {
+        return DateTime->new(
+                day        => $1,
+                month      => $2,
+                year       => $3);
+    }
     # Since we always have year-month-day, we can be much faster than the full parser
     # parse_datetime: 83s. custom regexp: 66s.
     # return DateTime::Format::ISO8601->parse_datetime($date);
@@ -93,8 +100,11 @@ sub fast_parse_datetime($) {
                 month      => $2,
                 day        => $3);
     }
+    warn "Failed to parse date $date as day/month/year or year-month-day\n";
     return undef;
 }
+# unittest
+die "Failed to parse ".fast_parse_datetime("2/4/2023")."\n" unless fast_parse_datetime("2/4/2023")->day == 2;
 
 my %cache = ();
 
@@ -112,6 +122,7 @@ sub get_day_of_week($) {
         $date eq '2021-04-05' || # paques (easter)
         $date eq '2022-04-18' || # paques (easter), see https://en.wikipedia.org/wiki/Easter_Monday
         $date eq '2023-04-10' || # paques (easter), see https://en.wikipedia.org/wiki/Easter_Monday
+        $date eq '2024-04-01' || # paques (easter), see https://en.wikipedia.org/wiki/Easter_Monday
         $date =~ /-05-01$/ ||
         $date =~ /-05-08$/ ||
         $date eq '2021-05-13' || # ascension
@@ -120,6 +131,8 @@ sub get_day_of_week($) {
         $date eq '2022-06-06' || # pentecote, add one to the date on https://fr.wikipedia.org/wiki/Pentec%C3%B4te
         $date eq '2023-05-18' || # ascension, cf https://fr.wikipedia.org/wiki/Ascension_(f%C3%AAte)
         $date eq '2023-05-29' || # pentecote, add one to the date on https://fr.wikipedia.org/wiki/Pentec%C3%B4te
+        $date eq '2024-05-09' || # ascension, cf https://fr.wikipedia.org/wiki/Ascension_(f%C3%AAte)
+        $date eq '2024-05-19' || # pentecote, add one to the date on https://fr.wikipedia.org/wiki/Pentec%C3%B4te
         $date =~ /-07-14$/ ||
         $date =~ /-08-15$/ ||
         $date =~ /-11-01$/ ||
@@ -127,7 +140,7 @@ sub get_day_of_week($) {
         $date =~ /-12-25$/) {
         $day_of_week = 8;
     }
-    die "new year, please update the list of public holidays" if get_year($date) == 2024;
+    die "new year, please update the list of public holidays" if get_year($date) == 2025;
 
     $cache{$date} = $day_of_week;
 
@@ -214,8 +227,8 @@ sub generate_date_list($) {
 # unittest
 my @test_array = ("2021-01-18", "2021-01-19", "2021-01-20", "2021-01-25", "2021-02-10");
 die generate_date_list(\@test_array) unless generate_date_list(\@test_array) eq "2021 Jan 18-20,2021 Jan 25,2021 Feb 10";
-@test_array = ("2021-01-18", "2021-01-19", "2022-02-25");
-die generate_date_list(\@test_array) unless generate_date_list(\@test_array) eq "2021 Jan 18-19,2022 Feb 25";
+@test_array = ("2021-01-18", "2021-01-19", "2022-02-02");
+die generate_date_list(\@test_array) unless generate_date_list(\@test_array) eq "2021 Jan 18-19,2022 Feb 02";
 
 
 # https://perldoc.perl.org/Class::Struct
@@ -723,6 +736,12 @@ sub main() {
         $office_names{$office_id} = $name;
         my $date = $row->[2];
         die unless defined $date;
+        # Turn DD/MM/YYYY to YYYY-MM-DD as it was before
+        if ($date =~ /\//) {
+            my $date_dt = fast_parse_datetime($date);
+            $date = $date_dt->year . "-" . sprintf("%02d", $date_dt->month) . "-" . sprintf("%02d", $date_dt->day);
+        }
+
         next if ($skip_old and $date lt $today);
         $file_start_date = $date if (!defined $file_start_date or $date lt $file_start_date);
         my $opening = $row->[3];

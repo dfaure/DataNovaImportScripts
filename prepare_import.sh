@@ -21,7 +21,8 @@ if [ ! -s "$infile" -o -n "`find $infile -mtime +4  2>/dev/null`" ]; then
         mv -f $infile $infile.bak
     fi
     # 137MB download
-    wget 'https://datanova.laposte.fr/explore/dataset/laposte_ouvertur/download/?format=csv&timezone=Europe/Berlin&lang=fr&use_labels_for_header=true&csv_separator=%3B' -O $infile
+    #wget 'https://datanova.laposte.fr/explore/dataset/laposte_ouvertur/download/?format=csv&timezone=Europe/Berlin&lang=fr&use_labels_for_header=true&csv_separator=%3B' -O $infile
+    curl --request GET --url https://datanova.laposte.fr/data-fair/api/v1/datasets/laposte-ouvertur/raw -o $infile
 fi
 
 date=`date +'%Y-%m-%d'`
