@@ -32,7 +32,10 @@ if [ -f data/new_opening_hours ]; then
 fi
 
 echo "Parsing datanova data to deduce opening_hours..."
-if ! ./parse.pl $infile > data/new_opening_hours 2> data/warnings; then
+infile_utf8=data/laposte_ouvertur_utf8.csv
+iconv -f latin1 -t utf8 $infile > $infile_utf8
+
+if ! ./parse.pl $infile_utf8 > data/new_opening_hours 2> data/warnings; then
     tail -n 1 data/warnings
     exit 1
 fi

@@ -100,7 +100,7 @@ sub fast_parse_datetime($) {
                 month      => $2,
                 day        => $3);
     }
-    warn "Failed to parse date $date as day/month/year or year-month-day\n";
+    die "Failed to parse date $date as day/month/year or year-month-day\n";
     return undef;
 }
 # unittest
@@ -722,9 +722,26 @@ sub parse_args() {
 
 sub main() {
     my $csv_file = parse_args();
-    open my $fh, "$csv_file" or panic "Cannot open $csv_file: $!";
+
+    open my $fh, "<:encoding(iso-8859-1)", "$csv_file" or panic "Cannot open $csv_file: $!";
     my $csv = Text::CSV->new({ binary => 1, sep_char => ';' });
-    my $line_nr = 0;
+
+    # Identify columns
+    my $header = $csv->getline($fh);
+    die "No header found in CSV file" unless defined $header;
+    my $col_office_id;
+    my $col_name;
+    my $col_date;
+    my $col_opening;
+    for my $i (0 .. $#$header) {
+        my $title = $header->[$i];
+        $col_office_id = $i if ($title eq '#Identifiant');
+        $col_name = $i if ($title eq 'Libellé_du_site');
+        $col_date = $i if ($title eq 'Date_calendrier');
+        $col_opening = $i if ($title eq 'Plage_horaire_1');
+    }
+
+    my $line_nr = 1;
 
     my $today = DateTime->now->ymd;
 
@@ -736,12 +753,11 @@ sub main() {
 
     while (my $row = $csv->getline($fh)) {
         $line_nr++;
-        my $office_id = $row->[0];
-        next if ($office_id =~ /^#/); # Skip header row
-        my $name = $row->[1];
+        my $office_id = $row->[$col_office_id];
+        my $name = $row->[$col_name];
         die unless defined $name;
         $office_names{$office_id} = $name;
-        my $date = $row->[2];
+        my $date = $row->[$col_date];
         die unless defined $date;
         # Turn DD/MM/YYYY to YYYY-MM-DD as it was before
         if ($date =~ /\//) {
@@ -751,14 +767,14 @@ sub main() {
 
         next if ($skip_old and $date lt $today);
         $file_start_date = $date if (!defined $file_start_date or $date lt $file_start_date);
-        my $opening = $row->[3];
-        if ($row->[4] ne '') {
-            $opening .= "," . $row->[4];
+        my $opening = $row->[$col_opening];
+        if ($row->[$col_opening + 1] ne '') {
+            $opening .= "," . $row->[$col_opening + 1];
         }
-        if ($row->[5] ne '') {
-            $opening .= "," . $row->[5];
+        if ($row->[$col_opening + 2] ne '') {
+            $opening .= "," . $row->[$col_opening + 2];
         }
-        die "unsupported: see line $line_nr" if ($row->[6] ne '');
+        die "unsupported: see line $line_nr" if ($row->[$col_opening + 3] ne '');
         my $day_of_week = get_day_of_week($date);
         $opening = "off" if $opening =~ /^FERME$/ or $opening eq '';
         push @{$office_data{$office_id}{$day_of_week}{$opening}}, $date;
