@@ -1,3 +1,4 @@
+#Identifiant;Libellé_du_site;Date_calendrier;Plage_horaire_1;Plage_horaire_2;Plage_horaire_3;Plage_horaire_4;Plage_horaire_5;Plage_horaire_6;Plage_horaire_7;Heure_limite_dépôt_Courrier;Heure_limite_dépôt_Chrono;Heure_limite_dépôt_Colis;Libellé_de_la_fermeture;Bp_Plage_horaire_1;Bp_Plage_horaire_2;Bp_Plage_horaire_3;Bp_Plage_horaire_4;Bp_Plage_horaire_5;Bp_Plage_horaire_6;Bp_Plage_horaire_7;Bp_Libellé_de_la_fermeture
 00285A;LEHAUCOURT AP;2020-11-24;13:30-16:30;;;;;;;15:00;15:00;;;FERME;;;;;;;
 00285A;LEHAUCOURT AP;2021-02-11;13:30-16:30;;;;;;;15:00;15:00;;;FERME;;;;;;;
 00285A;LEHAUCOURT AP;2020-12-10;13:30-16:30;;;;;;;15:00;15:00;;;FERME;;;;;;;
