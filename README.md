@@ -47,5 +47,6 @@ Do this in the parent directory of this checkout
     git clone https://github.com/grigory-rechistov/osm-bulk-upload
 
 ## Other dependencies
+    apt install libtext-csv-perl
     pip install overpass python-dateutil
 

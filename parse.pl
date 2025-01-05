@@ -123,6 +123,9 @@ sub get_day_of_week($) {
         $date eq '2022-04-18' || # paques (easter), see https://en.wikipedia.org/wiki/Easter_Monday
         $date eq '2023-04-10' || # paques (easter), see https://en.wikipedia.org/wiki/Easter_Monday
         $date eq '2024-04-01' || # paques (easter), see https://en.wikipedia.org/wiki/Easter_Monday
+        $date eq '2025-04-21' || # paques (easter), see https://en.wikipedia.org/wiki/Easter_Monday
+        $date eq '2026-04-06' || # paques (easter), see https://en.wikipedia.org/wiki/Easter_Monday
+        $date eq '2027-03-29' || # paques (easter), see https://en.wikipedia.org/wiki/Easter_Monday
         $date =~ /-05-01$/ ||
         $date =~ /-05-08$/ ||
         $date eq '2021-05-13' || # ascension
@@ -132,7 +135,11 @@ sub get_day_of_week($) {
         $date eq '2023-05-18' || # ascension, cf https://fr.wikipedia.org/wiki/Ascension_(f%C3%AAte)
         $date eq '2023-05-29' || # pentecote, add one to the date on https://fr.wikipedia.org/wiki/Pentec%C3%B4te
         $date eq '2024-05-09' || # ascension, cf https://fr.wikipedia.org/wiki/Ascension_(f%C3%AAte)
-        $date eq '2024-05-19' || # pentecote, add one to the date on https://fr.wikipedia.org/wiki/Pentec%C3%B4te
+        $date eq '2024-05-20' || # pentecote, add one to the date on https://fr.wikipedia.org/wiki/Pentec%C3%B4te
+        $date eq '2025-05-29' || # ascension, cf https://fr.wikipedia.org/wiki/Ascension_(f%C3%AAte)
+        $date eq '2025-06-09' || # pentecote, add one to the date on https://fr.wikipedia.org/wiki/Pentec%C3%B4te
+        $date eq '2026-05-14' || # ascension, cf https://fr.wikipedia.org/wiki/Ascension_(f%C3%AAte)
+        $date eq '2026-05-25' || # pentecote, add one to the date on https://fr.wikipedia.org/wiki/Pentec%C3%B4te
         $date =~ /-07-14$/ ||
         $date =~ /-08-15$/ ||
         $date =~ /-11-01$/ ||
@@ -140,7 +147,7 @@ sub get_day_of_week($) {
         $date =~ /-12-25$/) {
         $day_of_week = 8;
     }
-    die "new year, please update the list of public holidays" if get_year($date) == 2025;
+    die "new year, please update the list of public holidays" if get_year($date) >= 2026;
 
     $cache{$date} = $day_of_week;
 
