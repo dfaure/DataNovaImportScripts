@@ -147,7 +147,7 @@ sub get_day_of_week($) {
         $date =~ /-12-25$/) {
         $day_of_week = 8;
     }
-    die "new year, please update the list of public holidays" if get_year($date) >= 2026;
+    die "new year, please update the list of public holidays" if get_year($date) >= 2027;
 
     $cache{$date} = $day_of_week;
 

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+echo "Checking installation..."
+python3 -c 'from PyKOpeningHours.PyKOpeningHours import OpeningHours, Error' || exit 1
+
 echo "Running regression tests..."
 regression_tests/run_all.sh > /dev/null || exit 1
 

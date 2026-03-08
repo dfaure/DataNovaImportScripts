@@ -20,7 +20,7 @@ for changeset in changes/*.osc; do
 
     url="https://wiki.openstreetmap.org/wiki/Import/FrenchPostOfficeOpeningHours"
 
-    ../osm-bulk-upload/upload.py -u davidfaure_bot -p $password -c yes -m "$comment" $changeset \
+    python3 ../osm-bulk-upload/upload.py -u davidfaure_bot -p $password -c yes -m "$comment" $changeset \
     -x "DataNovaImportScripts $version, via osm-bulk-upload/python.py" -y "datanova.laposte.fr, $date" -z "$url" -i
     exitcode=$?
 
@@ -30,3 +30,5 @@ for changeset in changes/*.osc; do
         ./commit_changes_locally.py $hoursfile || exit 1
     fi
 done
+
+echo "Done"
